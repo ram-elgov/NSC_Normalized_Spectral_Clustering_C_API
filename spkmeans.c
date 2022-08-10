@@ -6,6 +6,6 @@
 
 /* standalone client */
 int main(int argc, char **argv) {
-  printf("%s", "Hello from spectral clustering!");
-//  printf();
+  printf("%s,\n %s,\n %s", argv[0], argv[1], argv[2]);
+  return 0;
 }

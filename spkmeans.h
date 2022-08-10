@@ -6,5 +6,5 @@
 //typedef struct normalized_spectral_clustering {
 //  double **matrix, ddm, wam, l_norm, t;
 //}NSC;
-int check_api(char)
+
 #endif //SPECTRAL_CLUSTERING__SPKMEANS_H_
