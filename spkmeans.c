@@ -82,7 +82,7 @@ void CalculateNandD(Nsc *nsc, FILE *input_file) {
 void InitDataPointsMatrix(Nsc *nsc, FILE *input_file) {
   double c;
   int i;
-  /* initialize a data point matrix */
+  /* initialize a data point matrix inside nsc */
   nsc->matrix = malloc((nsc->n * nsc->d) * sizeof(double));
   assert(nsc->matrix != NULL);
   i = 0;
