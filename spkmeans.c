@@ -33,6 +33,7 @@ int main(int argc, char **argv) {
   input_file = fopen(argv[2], "r");
   assert(input_file != NULL);
   ConstructNsc(nsc, input_file);
+  fclose(input_file);
   /* preform the required calculation */
   switch (user_goal) {
 	case WAM:
@@ -52,27 +53,53 @@ int main(int argc, char **argv) {
 			 " and eigenvectors as described in 1.2.1.\n");
 	  break;
   }
-  printf("Nsc:\n"
-		 "           n:%d\n"
-		 "           d:%d\n", nsc->n, nsc->d);
+  PrintMatrix(nsc->matrix, nsc->n, nsc->d);
   return 0;
 }
 void ConstructNsc(Nsc *nsc, FILE *input_file) {
+  CalculateNandD(nsc, input_file);
+  InitDataPointsMatrix(nsc, input_file);
+}
+void CalculateNandD(Nsc *nsc, FILE *input_file) {
+  /* calculate number of input data points and dimensionality */
   char c;
   nsc->n = 0;
   nsc->d = 0;
   while ((c = (char)fgetc(input_file)) != EOF) {
-	if (c == '\n') {
-	  ++(nsc->d);
-	  break;
-	}
-	if (c == ',')
-	  ++(nsc->d);
+    if (c == '\n') {
+      ++(nsc->d);
+      break;
+    }
+    if (c == ',')
+      ++(nsc->d);
   }
   rewind(input_file);
   while ((c = (char)fgetc(input_file)) != EOF)
-	if (c == '\n')
-	  ++(nsc->n);
+    if (c == '\n')
+      ++(nsc->n);
+  rewind(input_file);
+}
+void InitDataPointsMatrix(Nsc *nsc, FILE *input_file) {
+  double c;
+  int i;
+  /* initialize a data point matrix */
+  nsc->matrix = malloc((nsc->n * nsc->d) * sizeof(double));
+  assert(nsc->matrix != NULL);
+  i = 0;
+  while (fscanf(input_file, "%lf,", &c) != EOF&& (i < nsc->d * nsc->n)) {
+    if ((c != '\n') && (c != ',')) {
+      (nsc->matrix)[i] = (double) c;
+      ++i;
+    }
+  }
+}
+void PrintMatrix(double *matrix, int rows, int columns) {
+  int i, j;
+  for (i = 0; i < rows; i++) {
+    for (j = 0; j < columns; j++)
+      printf("%lf ", matrix[i * columns + j]);
+    printf("\n");
+  }
 }
 void InvalidInput() {
   printf("Invalid Input!");
