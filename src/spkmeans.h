@@ -34,9 +34,9 @@ void InitDataPointsMatrix(Nsc *nsc, FILE *input_file);
 double CalculateEuclideanDistance(double vector_1[], double vector_2[], int d);
 /* Let w_ij represent the weight of the connection between v_i and v_j . Only if w ij > 0, we define an edge
 between v_i and v_j. */
-double *SubTwoMatrices(const double matrix_1[], const double matrix_2[], Nsc *nsc);
-double *MultiplyTwoMatrices(const double matrix_1[], const double matrix_2[], Nsc *nsc);
-double *IdentityMatrix(Nsc *nsc);
+double *SubTwoMatrices(double matrix_1[], double matrix_2[], int n);
+double *MultiplyTwoMatrices(double matrix_1[], double matrix_2[], int n);
+double *IdentityMatrix(int n);
 void TransposeMatrix(double matrix[], int n);
 double CalculateWeight(int i, int j, Nsc *nsc);
 /* standalone client */

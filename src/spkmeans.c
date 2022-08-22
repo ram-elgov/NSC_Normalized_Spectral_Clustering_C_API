@@ -60,7 +60,7 @@ int main(int argc, char **argv) {
       PrintMatrix(nsc->ddg, nsc->n, nsc->n);
       InversedSqrtDiagonalDegreeMatrix(nsc);
       printf("Inversed sqrt ddg:\n");
-      PrintMatrix(nsc->wam, nsc->n, nsc->n);
+      PrintMatrix(nsc->ddg, nsc->n, nsc->n);
       CalculateNormalizedGraphLaplacian(nsc);
       printf("lnorm:\n");
       PrintMatrix(nsc->l_norm, nsc->n, nsc->n);
@@ -136,8 +136,8 @@ void CalculateDiagonalDegreeMatrix(Nsc *nsc) {
 
 void InversedSqrtDiagonalDegreeMatrix(Nsc *nsc){
   double val;
-  int i, j;
-  for (i = 0; i < nsc->n; i++) {
+  int i;
+  for(i = 0; i < nsc->n; i++) {
     val = (nsc->ddg)[i * nsc->n + i];
     (nsc->ddg)[i * nsc->n + i] = 1 / (sqrt(val));
   }
@@ -155,14 +155,14 @@ double *SubTwoMatrices(const double matrix_1[], const double matrix_2[], Nsc *ns
   return sub;
 }
 
-double *MultiplyTwoMatrices(const double *matrix_1, const double *matrix_2, Nsc *nsc){
-  double *multiply = calloc(nsc->n * nsc->n, sizeof(double ));
+double *MultiplyTwoMatrices(double matrix_1[], double matrix_2[], int n){
+  double *multiply = calloc(n * n, sizeof(double));
   assert(multiply != NULL);
   int i,j,k;
-  for(i = 0; i < nsc->n; i++){
-    for(j = 0; j < nsc->n; j++){
-      for(k = 0; k < nsc->n; k++){
-        multiply[i * nsc->n + j] += matrix_1[i * nsc->n + k] + matrix_2[k * nsc->n + j];
+  for(i = 0; i < n; i++){
+    for(j = 0; j < n; j++){
+      for(k = 0; k < n; k++){
+        multiply[i * n + j] += matrix_1[i * n + k] * matrix_2[k * n + j];
       }
     }
   }
