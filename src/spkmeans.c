@@ -143,13 +143,13 @@ void InversedSqrtDiagonalDegreeMatrix(Nsc *nsc){
   }
 }
 
-double *SubTwoMatrices(const double matrix_1[], const double matrix_2[], Nsc *nsc){
-  double *sub = calloc(nsc->n*nsc->n, sizeof(double));
+double *SubTwoMatrices(double matrix_1[], double matrix_2[], int n){
+  double *sub = calloc(n*n, sizeof(double));
   int i, j;
   assert(sub != NULL);
-  for(i = 0; i < nsc->n; i++){
-      for(j = 0; j  < nsc->n; j++){
-        sub[i*nsc->n + j] = matrix_1[i*nsc->n + j] - matrix_2[i*nsc->n + j];
+  for(i = 0; i < n; i++){
+      for(j = 0; j  < n; j++){
+        sub[i * n + j] = matrix_1[i * n + j] - matrix_2[i * n + j];
       }
   }
   return sub;
@@ -169,16 +169,16 @@ double *MultiplyTwoMatrices(double matrix_1[], double matrix_2[], int n){
   return multiply;
 }
 
-double *IdentityMatrix(Nsc *nsc){
-  double *identity = calloc(nsc->n * nsc->n, sizeof(double));
+double *IdentityMatrix(int n){
+  double *identity = calloc(n * n, sizeof(double));
   assert(identity != NULL);
   int i, j;
-  for(i = 0; i < nsc->n; i++){
-    for(j = 0; j < nsc->n; j++){
+  for(i = 0; i < n; i++){
+    for(j = 0; j < n; j++){
       if(i == j){
-        identity[i * nsc->n + j] = 1.0;
+        identity[i * n + j] = 1.0;
       } else {
-        identity[i * nsc->n + j] = 0.0;
+        identity[i * n + j] = 0.0;
       }
     }
   }
@@ -186,10 +186,23 @@ double *IdentityMatrix(Nsc *nsc){
 }
 
 void CalculateNormalizedGraphLaplacian(Nsc *nsc) {
-  nsc->l_norm = SubTwoMatrices(IdentityMatrix(nsc),
+  /* nsc->l_norm = SubTwoMatrices(IdentityMatrix(nsc),
                  MultiplyTwoMatrices(
                      MultiplyTwoMatrices(nsc->ddg, nsc->wam,nsc),
-                     nsc->ddg,nsc),nsc);
+                     nsc->ddg,nsc),nsc); */
+  double *identity;
+  double *inversedD_W;
+  double *inversedD_W_inversedD;
+  identity = IdentityMatrix(nsc->n);
+  assert(identity != NULL);
+  InversedSqrtDiagonalDegreeMatrix(nsc);
+  inversedD_W = MultiplyTwoMatrices(nsc->ddg, nsc->wam, nsc->n);
+  assert(inversedD_W != NULL);
+  inversedD_W_inversedD = MultiplyTwoMatrices(inversedD_W, nsc->ddg, nsc->n);
+  assert(inversedD_W_inversedD != NULL);
+  nsc->l_norm = SubTwoMatrices(identity, inversedD_W_inversedD, nsc->n);
+  assert(nsc->l_norm != NULL);
+  free(identity);
 }
 
 
