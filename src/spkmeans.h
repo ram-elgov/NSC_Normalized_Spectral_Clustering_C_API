@@ -1,7 +1,7 @@
 #ifndef SPECTRAL_CLUSTERING__SPKMEANS_H_
 #define SPECTRAL_CLUSTERING__SPKMEANS_H_
 /*
- * the spectral clustering API (LIBRARY)
+ * the spectral clustering API (library functions)
  * */
 typedef struct normalized_spectral_clustering {
   /**
@@ -9,8 +9,9 @@ typedef struct normalized_spectral_clustering {
    * d: data point dimension
    * k: number of required clusters
    */
-  double *matrix, *ddg, *wam, *l_norm;
-  int n, d, k;
+  double *matrix, *ddg, *wam, *l_norm, *eigen_vectors, *eigen_values;
+  int n, d, k, i_max, j_max;
+  double s, c;
 } Nsc;
 typedef enum {
   WAM,
@@ -31,7 +32,6 @@ void ConstructNsc(Nsc *nsc, FILE *input);
 void DestructNsc(Nsc *nsc);
 void CalculateNandD(Nsc *nsc, FILE *input_file);
 void InitDataPointsMatrix(Nsc *nsc, FILE *input_file);
-double CalculateEuclideanDistance(double vector_1[], double vector_2[], int d);
 /* Let w_ij represent the weight of the connection between v_i and v_j . Only if w ij > 0, we define an edge
 between v_i and v_j. */
 double *SubTwoMatrices(double matrix_1[], double matrix_2[], int n);
@@ -39,6 +39,16 @@ double *MultiplyTwoMatrices(double matrix_1[], double matrix_2[], int n);
 double *IdentityMatrix(int n);
 void TransposeMatrix(double matrix[], int n);
 double CalculateWeight(int i, int j, Nsc *nsc);
+void CalculateATag(double a[], Nsc *nsc);
+
+/* Math helper functions */
+double CalculateEuclideanDistance(double vector_1[], double vector_2[], int d);
+double *SubTwoMatrices(const double matrix_1[], const double matrix_2[], int n);
+double *MultiplyTwoMatrices(const double matrix_1[], const double matrix_2[], int n);
+double *IdentityMatrix(int n);
+int CheckDiagonal(const double a[], int n);
+
+
 /* standalone client */
 void InvalidInput();
 void GeneralError();

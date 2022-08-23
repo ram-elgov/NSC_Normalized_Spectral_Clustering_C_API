@@ -68,6 +68,21 @@ int main(int argc, char **argv) {
     case JACOBI:
       printf("Calculate and output the eigenvalues"
              " and eigenvectors as described in 1.2.1.\n");
+      CalculateWeightedAdjacencyMatrix(nsc);
+      printf("wam:\n");
+      PrintMatrix(nsc->wam, nsc->n, nsc->n);
+      CalculateDiagonalDegreeMatrix(nsc);
+      printf("ddg:\n");
+      PrintMatrix(nsc->ddg, nsc->n, nsc->n);
+      InversedSqrtDiagonalDegreeMatrix(nsc);
+      printf("Inversed sqrt ddg:\n");
+      PrintMatrix(nsc->ddg, nsc->n, nsc->n);
+      CalculateNormalizedGraphLaplacian(nsc);
+      printf("lnorm:\n");
+      PrintMatrix(nsc->l_norm, nsc->n, nsc->n);
+      printf("Jacobi:\n");
+      PrintMatrix(nsc->eigen_values, 1, nsc->n);
+      PrintMatrix(nsc->eigen_vectors, nsc->n, nsc->n);
       break;
   }
   DestructNsc(nsc);
@@ -132,7 +147,88 @@ void CalculateDiagonalDegreeMatrix(Nsc *nsc) {
     (nsc->ddg)[i * nsc->n + i] = val;
   }
 }
+void CalculateNormalizedGraphLaplacian(Nsc *nsc) {
+  /* nsc->l_norm = SubTwoMatrices(IdentityMatrix(nsc),
+                 MultiplyTwoMatrices(
+                     MultiplyTwoMatrices(nsc->ddg, nsc->wam,nsc),
+                     nsc->ddg,nsc),nsc); */
+  double *identity;
+  double *inversedD_W;
+  double *inversedD_W_inversedD;
+  identity = IdentityMatrix(nsc->n);
+  assert(identity != NULL);
+  InversedSqrtDiagonalDegreeMatrix(nsc);
+  inversedD_W = MultiplyTwoMatrices(nsc->ddg, nsc->wam, nsc->n);
+  assert(inversedD_W != NULL);
+  inversedD_W_inversedD = MultiplyTwoMatrices(inversedD_W, nsc->ddg, nsc->n);
+  assert(inversedD_W_inversedD != NULL);
+  nsc->l_norm = SubTwoMatrices(identity, inversedD_W_inversedD, nsc->n);
+  assert(nsc->l_norm != NULL);
+  free(identity);
+}
 
+/**
+ * Procedure:
+(a) Build a rotation matrix P (as explained below).
+(b) Transform the matrix A to:
+A' = P^TAP
+A = A'
+(c) Repeat a,b until A' is diagonal matrix.
+(d) The diagonal of the final A 0 is the eigenvalues of the original A.
+(e) Calculate the eigenvectors of A by multiplying all the rotation matrices:
+V = P 1 P 2 P 3 . . .
+ * */
+void CalculateJacobi(Nsc *nsc) {
+  double *P, *Aprime, *Ahelp, *V, *Vhelp;
+  double convergence, epsilon;
+  int num_iteration, i, j, n = nsc->n;
+  num_iteration = 0;
+  epsilon = pow(10, -5);
+  CopyMatrix(Ahelp, nsc->l_norm, n);
+  assert(Ahelp != NULL);
+  CopyMatrix(Aprime, Ahelp, n);
+  assert(Aprime != NULL);
+  V = IdentityMatrix(n);
+  assert(V != NULL);
+  while(num_iteration < 100){
+    P = Pmatrix(n, nsc);
+    assert(P != NULL);
+    CalculateATag(Aprime,nsc);
+    assert(Aprime != NULL);
+//    CopyMatrix(Vhelp, V, n);
+//    assert(Vhelp != NULL);
+//    free(V);
+    V = MultiplyTwoMatrices(V, P, n);
+    assert(V != NULL);
+    convergence = (Off(Ahelp, n) - Off(Aprime, n));
+    if(convergence <= epsilon){
+      free(Ahelp);
+      CopyMatrix(Ahelp, Aprime, n);
+      assert(Ahelp != NULL);
+      free(Vhelp);
+      free(Aprime);
+      free(P);
+      break;
+    }
+    CopyMatrix(Ahelp, Aprime, n);
+    assert(Ahelp != NULL);
+    num_iteration++;
+    CopyMatrix(nsc->eigen_vectors, Vhelp, n);
+  }
+  for (i = 0; i < nsc->n; ++i) {
+    nsc->eigen_values[i] = Ahelp[i * n + i];
+  }
+  free(Ahelp);
+  free(Vhelp);
+  free(Aprime);
+  free(P);
+}
+
+
+
+/*
+ * API helper functions
+ */
 
 void InversedSqrtDiagonalDegreeMatrix(Nsc *nsc){
   double val;
@@ -204,30 +300,6 @@ void CalculateNormalizedGraphLaplacian(Nsc *nsc) {
   assert(nsc->l_norm != NULL);
   free(identity);
 }
-
-
-void TransposeMatrix(double matrix[], int n) {
-  int i, j;
-  double tmp;
-  for (i = 0; i < n; ++i) {
-    for (j = i + 1; j < n; ++j) {
-      tmp = matrix[i * n + j];
-      matrix[i * n + j] = matrix[j * n + i];
-      matrix[j * n + i] = tmp;
-    }
-  }
-}
-
-/**
-void CalculateJacobi(Nsc *nsc) {
-
-}
-* */
-
-/*
- * API helper functions
- */
-
 void ConstructNsc(Nsc *nsc, FILE *input_file) {
   CalculateNandD(nsc, input_file);
   InitDataPointsMatrix(nsc, input_file);
@@ -237,6 +309,8 @@ void DestructNsc(Nsc *nsc) {
   free(nsc->wam);
   free(nsc->ddg);
   free(nsc->l_norm);
+  free(nsc->eigen_values);
+  free(nsc->eigen_vectors);
   free(nsc);
 }
 void CalculateNandD(Nsc *nsc, FILE *input_file) {
@@ -272,17 +346,6 @@ void InitDataPointsMatrix(Nsc *nsc, FILE *input_file) {
     }
   }
 }
-double CalculateEuclideanDistance(double vector_1[], double vector_2[], int d) {
-  /***
-   * calculate and return the standard Euclidean distance
-   * as defined in the project requirements.
-   */
-  double sum_of_squares = 0;
-  int i = 0;
-  for (i = 0; i < d; ++i)
-    sum_of_squares += pow(vector_2[i] - vector_1[i], 2);
-  return sqrt(sum_of_squares);
-}
 double CalculateWeight(int i, int j, Nsc *nsc) {
   /* i and j are the data points we want to find their weight */
   int k;
@@ -300,4 +363,88 @@ double CalculateWeight(int i, int j, Nsc *nsc) {
   free(vector_i);
   free(vector_j);
   return result;
+}
+void CalculateATag(double a[], Nsc *nsc) {
+  int i = nsc->i_max, j = nsc->j_max, n = nsc->n;
+  double c = nsc->c, s = nsc->s;
+  double *a_tag;
+  a_tag = malloc(n * n * sizeof(double));
+  assert(a_tag != NULL);
+  int r;
+  for (r = 0; r < n; ++r) {
+    if(r != nsc->i_max && r != nsc->j_max) {
+      a_tag[r * n + i] = c * a[r * n + i] - s * a[r * n + j];
+      a_tag[r * n + j] = c * a[r * n + j] + s * a[r * n + i];
+    }
+  }
+  a_tag[i * n + i] = c * c * a[i * n + i] - s * s * a[j * n + j] - 2 * s * c * a[i * n + j];
+  a_tag[j * n + j] = c * c * a[i * n + i] - s * s * a[j * n + j] + 2 * s * c * a[i * n + j];
+  a_tag[i * n + j] = 0;
+  CopyMatrix(a, a_tag, n);
+}
+
+
+/*
+ * Math helper functions
+ */
+double CalculateEuclideanDistance(double vector_1[], double vector_2[], int d) {
+  /***
+   * calculate and return the standard Euclidean distance
+   * as defined in the project requirements.
+   */
+  double sum_of_squares = 0;
+  int i = 0;
+  for (i = 0; i < d; ++i)
+    sum_of_squares += pow(vector_2[i] - vector_1[i], 2);
+  return sqrt(sum_of_squares);
+}
+double *SubTwoMatrices(const double matrix_1[], const double matrix_2[], int n){
+  double *sub = calloc(n*n, sizeof(double));
+  int i, j;
+  assert(sub != NULL);
+  for(i = 0; i < n; i++){
+    for(j = 0; j  < n; j++){
+      sub[i * n + j] = matrix_1[i * n + j] - matrix_2[i * n + j];
+    }
+  }
+  return sub;
+}
+double *MultiplyTwoMatrices(const double matrix_1[], const double matrix_2[], int n){
+  double *multiply = calloc(n * n, sizeof(double));
+  assert(multiply != NULL);
+  int i,j,k;
+  for(i = 0; i < n; i++){
+    for(j = 0; j < n; j++){
+      for(k = 0; k < n; k++){
+        multiply[i * n + j] += matrix_1[i * n + k] * matrix_2[k * n + j];
+      }
+    }
+  }
+  return multiply;
+}
+double *IdentityMatrix(int n){
+  double *identity = calloc(n * n, sizeof(double));
+  assert(identity != NULL);
+  int i, j;
+  for(i = 0; i < n; i++){
+    for(j = 0; j < n; j++){
+      if(i == j){
+        identity[i * n + j] = 1.0;
+      } else {
+        identity[i * n + j] = 0.0;
+      }
+    }
+  }
+  return identity;
+}
+int CheckDiagonal(const double a[], int n) {
+  int i, j;
+  for (i = 0; i < n; ++i) {
+    for (j = 0; j < n; ++j) {
+      if (i != j)
+        if (a[i * n + j] != 0)
+          return 0;
+    }
+  }
+  return 1;
 }
