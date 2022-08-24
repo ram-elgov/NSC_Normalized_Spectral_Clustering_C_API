@@ -552,3 +552,45 @@ double* Transpose(double a[], int n) {
     }
   }
 }
+
+/*this func calculates U matrix*/
+double *Umatrix(int n, int k, double *new_vectors) {
+    double *u;
+    int i, j;
+    u = calloc(n * k, sizeof(double));
+    if (u == NULL) {
+        return NULL;
+    }
+    for (i = 0; i < n; i++) {
+        for (j = 0; j < k; j++) {
+            u[i * n + j] = new_vectors[i * n + j];
+        }
+    }
+    return u;
+}
+
+/*this func calculates T matrix*/
+double **Tmatrix(double *u, int n, int k) {
+    double *t;
+    int i, j;
+    double sum;
+    t = calloc(n * k, sizeof(double));
+    if (t == NULL) {
+        return NULL;
+    }
+    for (i = 0; i < n; i++) {
+        sum = 0.0;
+        for (j = 0; j < k; j++) {
+            sum += pow(u[i * n + j], 2);
+        }
+        sum = pow(sum, 0.5);
+        for (j = 0; j < k; j++) {
+            if (sum != 0) {
+                t[i * n + j] = u[i * n + j] / sum;
+            } else {
+                t[i * n + j] = u[i * n + j];
+            }
+        }
+    }
+    return t;
+}
