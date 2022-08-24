@@ -9,9 +9,9 @@ typedef struct normalized_spectral_clustering {
    * d: data point dimension
    * k: number of required clusters
    */
-  double *matrix, *ddg, *wam, *l_norm, *eigen_vectors, *eigen_values;
+  double *matrix, *ddg,*inversed_sqrt_ddg, *wam, *l_norm, *eigen_vectors, *eigen_values;
   int n, d, k, i_max, j_max;
-  double s, c;
+  double s, c, epsilon;
 } Nsc;
 typedef enum {
   WAM,
@@ -28,7 +28,7 @@ void CalculateNormalizedGraphLaplacian(Nsc *nsc);
 void CalculateJacobi(Nsc *nsc);
 
 /* API helper functions */
-void ConstructNsc(Nsc *nsc, FILE *input);
+void ConstructNsc(Nsc *nsc, FILE *input, double epsilon);
 void DestructNsc(Nsc *nsc);
 void CalculateNandD(Nsc *nsc, FILE *input_file);
 void InitDataPointsMatrix(Nsc *nsc, FILE *input_file);
@@ -39,7 +39,8 @@ double *MultiplyTwoMatrices(double matrix_1[], double matrix_2[], int n);
 double *IdentityMatrix(int n);
 void TransposeMatrix(double matrix[], int n);
 double CalculateWeight(int i, int j, Nsc *nsc);
-void CalculateATag(double a[], Nsc *nsc);
+double* CalculateATag(double a[], double p[], Nsc *nsc);
+int FindK(double *values, const double *vectors, double *new_vectors, int n, int k);
 
 /* Math helper functions */
 double CalculateEuclideanDistance(double vector_1[], double vector_2[], int d);
@@ -47,10 +48,14 @@ double *SubTwoMatrices(const double matrix_1[], const double matrix_2[], int n);
 double *MultiplyTwoMatrices(const double matrix_1[], const double matrix_2[], int n);
 double *IdentityMatrix(int n);
 int CheckDiagonal(const double a[], int n);
+int IndexOfMinValue(double *values, int n);
+double FindMax(double *values, int n);
+double *Transpose(double matrix[], int n);
 
 
 /* standalone client */
 void InvalidInput();
 void GeneralError();
 void PrintMatrix(double *matrix, int rows, int columns);
+void PrintMatrixJacobi(Nsc *nsc);
 #endif /* SPECTRAL_CLUSTERING__SPKMEANS_H_ */

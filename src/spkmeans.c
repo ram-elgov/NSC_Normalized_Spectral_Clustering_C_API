@@ -32,7 +32,7 @@ int main(int argc, char **argv) {
   /* parse the file */
   input_file = fopen(argv[2], "r");
   assert(input_file != NULL);
-  ConstructNsc(nsc, input_file);
+  ConstructNsc(nsc, input_file, 0.00001);
   fclose(input_file);
   /* preform the required calculation */
   switch (user_goal) {
@@ -60,7 +60,7 @@ int main(int argc, char **argv) {
       PrintMatrix(nsc->ddg, nsc->n, nsc->n);
       InversedSqrtDiagonalDegreeMatrix(nsc);
       printf("Inversed sqrt ddg:\n");
-      PrintMatrix(nsc->ddg, nsc->n, nsc->n);
+      PrintMatrix(nsc->inversed_sqrt_ddg, nsc->n, nsc->n);
       CalculateNormalizedGraphLaplacian(nsc);
       printf("lnorm:\n");
       PrintMatrix(nsc->l_norm, nsc->n, nsc->n);
@@ -81,7 +81,9 @@ int main(int argc, char **argv) {
       printf("lnorm:\n");
       PrintMatrix(nsc->l_norm, nsc->n, nsc->n);
       printf("Jacobi:\n");
-      PrintMatrix(nsc->eigen_values, 1, nsc->n);
+      CalculateJacobi(nsc);
+      PrintMatrixJacobi(nsc);
+      printf("\n");
       PrintMatrix(nsc->eigen_vectors, nsc->n, nsc->n);
       break;
   }
@@ -99,12 +101,34 @@ void PrintMatrix(double *matrix, int rows, int columns) {
     printf("\n");
   }
 }
+
+void PrintMatrixJacobi(Nsc *nsc) {
+  int i;
+  int n = nsc->n;
+  for (i = 0; i < n; i++) {
+    if (nsc->eigen_values[i] > -0.00005 && nsc->eigen_values[i] < 0) {
+      if (i < n - 1) {
+        printf("%.3f%s", fabs(nsc->eigen_values[i]), ",");
+      } else {
+        printf("%.3f\n", fabs(nsc->eigen_values[i]));
+      }
+    } else {
+      if (i < n - 1) {
+        printf("%.3f%s", nsc->eigen_values[i], ",");
+      } else {
+        printf("%.3f\n", nsc->eigen_values[i]);
+      }
+    }
+  }
+}
+
 void InvalidInput() {
   printf("Invalid Input!");
 }
 void GeneralError() {
   printf("An Error Has Occurred");
 }
+
 
 /*
  * library functions implementation
@@ -166,7 +190,6 @@ void CalculateNormalizedGraphLaplacian(Nsc *nsc) {
   assert(nsc->l_norm != NULL);
   free(identity);
 }
-
 /**
  * Procedure:
 (a) Build a rotation matrix P (as explained below).
@@ -179,49 +202,47 @@ A = A'
 V = P 1 P 2 P 3 . . .
  * */
 void CalculateJacobi(Nsc *nsc) {
-  double *P, *Aprime, *Ahelp, *V, *Vhelp;
-  double convergence, epsilon;
-  int num_iteration, i, j, n = nsc->n;
+  double *p, *a_tag, *a, *v;
+  double convergence;
+  int num_iteration, i, n = nsc->n;
   num_iteration = 0;
-  epsilon = pow(10, -5);
-  CopyMatrix(Ahelp, nsc->l_norm, n);
-  assert(Ahelp != NULL);
-  CopyMatrix(Aprime, Ahelp, n);
-  assert(Aprime != NULL);
-  V = IdentityMatrix(n);
-  assert(V != NULL);
+  /* on a_help we do the matrix operation instead of
+   * overwriting l_norm */
+  a = malloc(n * n * sizeof(double));
+  assert(a != NULL);
+  CopyMatrix(a, nsc->l_norm, n);
+  /*  */
+  a_tag = malloc(n * n * sizeof(double));
+  assert(a_tag != NULL);
+  CopyMatrix(a_tag, a, n);
+  v = IdentityMatrix(n);
+  assert(v != NULL);
   while(num_iteration < 100){
-    P = Pmatrix(n, nsc);
-    assert(P != NULL);
-    CalculateATag(Aprime,nsc);
-    assert(Aprime != NULL);
-//    CopyMatrix(Vhelp, V, n);
-//    assert(Vhelp != NULL);
-//    free(V);
-    V = MultiplyTwoMatrices(V, P, n);
-    assert(V != NULL);
-    convergence = (Off(Ahelp, n) - Off(Aprime, n));
-    if(convergence <= epsilon){
-      free(Ahelp);
-      CopyMatrix(Ahelp, Aprime, n);
-      assert(Ahelp != NULL);
-      free(Vhelp);
-      free(Aprime);
-      free(P);
+    if (num_iteration == 1)
+      PrintMatrix(v, n, n);
+    p = Pmatrix(a, n, nsc);
+    assert(p != NULL);
+    a_tag = CalculateATag(a, p, nsc);
+    assert(a_tag != NULL);
+    v = MultiplyTwoMatrices(v, p, n);
+    assert(v != NULL);
+    convergence = (Off(a, n) - Off(a_tag, n));
+    if(convergence <= nsc->epsilon){
+      CopyMatrix(a, a_tag, n);
       break;
+      assert(a != NULL);
     }
-    CopyMatrix(Ahelp, Aprime, n);
-    assert(Ahelp != NULL);
+    CopyMatrix(a, a_tag, n);
+    assert(a != NULL);
     num_iteration++;
-    CopyMatrix(nsc->eigen_vectors, Vhelp, n);
+    CopyMatrix(nsc->eigen_vectors, v, n);
   }
   for (i = 0; i < nsc->n; ++i) {
-    nsc->eigen_values[i] = Ahelp[i * n + i];
+    nsc->eigen_values[i] = a[i * n + i];
   }
-  free(Ahelp);
-  free(Vhelp);
-  free(Aprime);
-  free(P);
+  free(a);
+  free(a_tag);
+  free(p);
 }
 
 
@@ -300,14 +321,24 @@ void CalculateNormalizedGraphLaplacian(Nsc *nsc) {
   assert(nsc->l_norm != NULL);
   free(identity);
 }
-void ConstructNsc(Nsc *nsc, FILE *input_file) {
+void ConstructNsc(Nsc *nsc, FILE *input_file, double epsilon) {
+  nsc->epsilon = epsilon;
   CalculateNandD(nsc, input_file);
   InitDataPointsMatrix(nsc, input_file);
+  nsc->eigen_values = malloc(nsc->n * sizeof(double));
+  assert(nsc->eigen_values != NULL);
+  nsc->eigen_vectors = malloc(nsc->n * nsc->n * sizeof(double));
+  assert(nsc->eigen_vectors != NULL);
+  nsc->ddg = malloc(nsc->n * nsc->n * sizeof(double));
+  assert(nsc->ddg != NULL);
+  nsc->inversed_sqrt_ddg = malloc(nsc->n * nsc->n * sizeof(double));
+  assert(nsc->inversed_sqrt_ddg != NULL);
 }
 void DestructNsc(Nsc *nsc) {
   free(nsc->matrix);
   free(nsc->wam);
   free(nsc->ddg);
+  free(nsc->inversed_sqrt_ddg);
   free(nsc->l_norm);
   free(nsc->eigen_values);
   free(nsc->eigen_vectors);
@@ -377,10 +408,45 @@ void CalculateATag(double a[], Nsc *nsc) {
       a_tag[r * n + j] = c * a[r * n + j] + s * a[r * n + i];
     }
   }
-  a_tag[i * n + i] = c * c * a[i * n + i] - s * s * a[j * n + j] - 2 * s * c * a[i * n + j];
-  a_tag[j * n + j] = c * c * a[i * n + i] - s * s * a[j * n + j] + 2 * s * c * a[i * n + j];
+  a_tag[i * n + i] = c * c * a[i * n + i] + s * s * a[j * n + j] - 2 * s * c * a[i * n + j];
+  a_tag[j * n + j] = c * c * a[i * n + i] + s * s * a[j * n + j] + 2 * s * c * a[i * n + j];
   a_tag[i * n + j] = 0;
   CopyMatrix(a, a_tag, n);
+}
+
+/****** The Eigen-gap Heuristic for finding number of clusters - K
+ * values[n] , vectors[n * n], new_vectors[n * n]*****************/
+int FindK(double *values, const double *vectors, double *new_vectors, int n, int k) {
+  double *new_values, maximum;
+  int i, j, index, max_index;
+  double max = 0;
+  new_values = calloc(n, sizeof(double));
+  if (new_values == NULL) {
+    return -1;
+  }
+  maximum = FindMax(values, n);
+  for (i = 0; i < n; i++) {
+    index = IndexOfMinValue(values, n);
+    new_values[i] = values[index];
+    for (j = 0; j < n; j++) {
+      new_vectors[j * n + i] = vectors[j * n + index];
+    }
+    values[index] = maximum + 1;
+  }
+  for (i = 0; i < n; i++) {
+    values[i] = new_values[i];
+  }
+  free(new_values);
+  if (k == 0) {
+    for (i = 0; i < floor(n / 2); i++) {
+      if (max < fabs(new_values[i] - new_values[i + 1])) {
+        max = fabs(new_values[i] - new_values[i + 1]);
+        max_index = i;
+      }
+    }
+    return max_index + 1;
+  }
+  return k;
 }
 
 
@@ -448,34 +514,13 @@ int CheckDiagonal(const double a[], int n) {
   }
   return 1;
 }
-
-void PrintMatrixJacobi(Nsc *nsc) {
-    int i;
-    int n = nsc->n;
-    for (i = 0; i < n; i++) {
-        if (nsc->eigen_values[i] > -0.00005 && nsc->eigen_values[i] < 0) {
-            if (i < n - 1) {
-                printf("%.4f%s", fabs(nsc->eigen_values[i]), ",");
-            } else {
-                printf("%.4f\n", fabs(nsc->eigen_values[i]));
-            }
-        } else {
-            if (i < n - 1) {
-                printf("%.4f%s", nsc->eigen_values[i], ",");
-            } else {
-                printf("%.4f\n", nsc->eigen_values[i]);
-            }
-        }
-    }
-}
-  
-  /*this func return the index of the min value in a given array*/
+  /* this func return the index of the min value in a given array */
 int IndexOfMinValue(double *values, int n) {
     int i;
     double min;
     int min_index;
     min = values[0];
-    minindex = 0;
+    min_index = 0;
     for (i = 0; i < n; i++) {
         if (min > values[i]) {
             min = values[i];
@@ -484,7 +529,6 @@ int IndexOfMinValue(double *values, int n) {
     }
     return min_index;
 }
-
 /*this func calculates the max of a given array*/
 double FindMax(double *values, int n) {
     int i;
@@ -497,38 +541,14 @@ double FindMax(double *values, int n) {
     }
     return max;
 }
-
-/*this func calculates the k*/
-/* values[n] , vectors[n * n], newvectors[n * n] */
-int findK(double *values, double *vectors, double *newvectors, int n, int k) {
-    double *newvalues, maximum;
-    int i, j, index, maxindex;
-    double max = 0;
-    newvalues = calloc(n, sizeof(double));
-    if (newvalues == NULL) {
-        return -1;
+double* Transpose(double a[], int n) {
+  int i, j;
+  double tmp;
+  for (i = 0; i < n; ++i) {
+    for (j = 0; j < n; ++j) {
+      tmp = a[i * n + j];
+      a[i * n + j] = a[j * n + i];
+      a[j * n + i] = tmp;
     }
-    maximum = FindMax(values, n);
-    for (i = 0; i < n; i++) {
-        index = IndexOfMinValue(values, n);
-        newvalues[i] = values[index];
-        for (j = 0; j < n; j++) {
-            newvectors[j * n + i] = vectors[j * n + index];
-        }
-        values[index] = maximum + 1;
-    }
-    for (i = 0; i < n; i++) {
-        values[i] = newvalues[i];
-    }
-    free(newvalues);
-    if (k == 0) {
-        for (i = 0; i < floor(n / 2); i++) {
-            if (max < fabs(newvalues[i] - newvalues[i + 1])) {
-                max = fabs(newvalues[i] - newvalues[i + 1]);
-                maxindex = i;
-            }
-        }
-        return maxindex + 1;
-    }
-    return k;
+  }
 }
