@@ -448,3 +448,87 @@ int CheckDiagonal(const double a[], int n) {
   }
   return 1;
 }
+
+void PrintMatrixJacobi(Nsc *nsc) {
+    int i;
+    int n = nsc->n;
+    for (i = 0; i < n; i++) {
+        if (nsc->eigen_values[i] > -0.00005 && nsc->eigen_values[i] < 0) {
+            if (i < n - 1) {
+                printf("%.4f%s", fabs(nsc->eigen_values[i]), ",");
+            } else {
+                printf("%.4f\n", fabs(nsc->eigen_values[i]));
+            }
+        } else {
+            if (i < n - 1) {
+                printf("%.4f%s", nsc->eigen_values[i], ",");
+            } else {
+                printf("%.4f\n", nsc->eigen_values[i]);
+            }
+        }
+    }
+}
+  
+  /*this func return the index of the min value in a given array*/
+int IndexOfMinValue(double *values, int n) {
+    int i;
+    double min;
+    int min_index;
+    min = values[0];
+    minindex = 0;
+    for (i = 0; i < n; i++) {
+        if (min > values[i]) {
+            min = values[i];
+            min_index = i;
+        }
+    }
+    return min_index;
+}
+
+/*this func calculates the max of a given array*/
+double FindMax(double *values, int n) {
+    int i;
+    double max;
+    max = values[0];
+    for (i = 0; i < n; i++) {
+        if (max < values[i]) {
+            max = values[i];
+        }
+    }
+    return max;
+}
+
+/*this func calculates the k*/
+/* values[n] , vectors[n * n], newvectors[n * n] */
+int findK(double *values, double *vectors, double *newvectors, int n, int k) {
+    double *newvalues, maximum;
+    int i, j, index, maxindex;
+    double max = 0;
+    newvalues = calloc(n, sizeof(double));
+    if (newvalues == NULL) {
+        return -1;
+    }
+    maximum = FindMax(values, n);
+    for (i = 0; i < n; i++) {
+        index = IndexOfMinValue(values, n);
+        newvalues[i] = values[index];
+        for (j = 0; j < n; j++) {
+            newvectors[j * n + i] = vectors[j * n + index];
+        }
+        values[index] = maximum + 1;
+    }
+    for (i = 0; i < n; i++) {
+        values[i] = newvalues[i];
+    }
+    free(newvalues);
+    if (k == 0) {
+        for (i = 0; i < floor(n / 2); i++) {
+            if (max < fabs(newvalues[i] - newvalues[i + 1])) {
+                max = fabs(newvalues[i] - newvalues[i + 1]);
+                maxindex = i;
+            }
+        }
+        return maxindex + 1;
+    }
+    return k;
+}
