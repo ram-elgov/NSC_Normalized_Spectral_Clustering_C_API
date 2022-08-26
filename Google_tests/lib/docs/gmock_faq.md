@@ -131,7 +131,7 @@ state of relevant expectations.
 
 Sometimes an expectation's state didn't change between two failures, and you'll
 see the same description of the state twice. They are however *not* redundant,
-as they refer to *different points in time*. The fact they are the same *is*
+as they refer to *different data_points in time*. The fact they are the same *is*
 interesting information.
 
 ### I get a heapcheck failure when using a mock object, but using a real object is fine. What can be wrong?

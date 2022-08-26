@@ -1890,7 +1890,7 @@ class PointeeMatcher {
         : matcher_(MatcherCast<const Pointee&>(matcher)) {}
 
     void DescribeTo(::std::ostream* os) const override {
-      *os << "points to a value that ";
+      *os << "data_points to a value that ";
       matcher_.DescribeTo(os);
     }
 
@@ -1903,7 +1903,7 @@ class PointeeMatcher {
                          MatchResultListener* listener) const override {
       if (GetRawPointer(pointer) == nullptr) return false;
 
-      *listener << "which points to ";
+      *listener << "which data_points to ";
       return MatchPrintAndExplain(*pointer, matcher_, listener);
     }
 
@@ -2088,7 +2088,7 @@ class FieldMatcher {
                            MatchResultListener* listener) const {
     if (p == nullptr) return false;
 
-    *listener << "which points to an object ";
+    *listener << "which data_points to an object ";
     // Since *p has a field, it must be a class/struct/union type and
     // thus cannot be a pointer.  Therefore we pass false_type() as
     // the first argument.
@@ -2156,7 +2156,7 @@ class PropertyMatcher {
                            MatchResultListener* listener) const {
     if (p == nullptr) return false;
 
-    *listener << "which points to an object ";
+    *listener << "which data_points to an object ";
     // Since *p has a property method, it must be a class/struct/union
     // type and thus cannot be a pointer.  Therefore we pass
     // false_type() as the first argument.
@@ -4338,7 +4338,7 @@ inline internal::FloatingEqMatcher<float> NanSensitiveFloatNear(
   return internal::FloatingEqMatcher<float>(rhs, true, max_abs_error);
 }
 
-// Creates a matcher that matches a pointer (raw or smart) that points
+// Creates a matcher that matches a pointer (raw or smart) that data_points
 // to a value that matches inner_matcher.
 template <typename InnerMatcher>
 inline internal::PointeeMatcher<InnerMatcher> Pointee(

@@ -6,11 +6,24 @@
 #include "assert.h"
 #include "string.h"
 #include "math.h"
+/******************************************************************************
+
+@author: mohammad daghash
+@id: 314811290
+@author: ram elgov
+@id: 206867517
+
+Implementation of the Normalized Spectral Clustering algorithm.
+
+*******************************************************************************/
+
 /* standalone client */
 int main(int argc, char **argv) {
   FILE *input_file;
   /* Goal is an enum for the supported goals */
   Goal user_goal;
+  double a[9] = {3,2,4,2,0,2,4,2,3};
+  double *p;
   Nsc *nsc = malloc(sizeof(Nsc));
   assert(nsc != NULL);
   if (argc != 3) {
@@ -50,17 +63,6 @@ int main(int argc, char **argv) {
       PrintMatrix(nsc->ddg, nsc->n, nsc->n);
       break;
     case LNORM:
-      printf("Calculate and output the Normalized"
-             " Graph Laplacian as described in 1.1.3.\n");
-      CalculateWeightedAdjacencyMatrix(nsc);
-      printf("wam:\n");
-      PrintMatrix(nsc->wam, nsc->n, nsc->n);
-      CalculateDiagonalDegreeMatrix(nsc);
-      printf("ddg:\n");
-      PrintMatrix(nsc->ddg, nsc->n, nsc->n);
-      InversedSqrtDiagonalDegreeMatrix(nsc);
-      printf("Inversed sqrt ddg:\n");
-      PrintMatrix(nsc->inversed_sqrt_ddg, nsc->n, nsc->n);
       CalculateNormalizedGraphLaplacian(nsc);
       printf("lnorm:\n");
       PrintMatrix(nsc->l_norm, nsc->n, nsc->n);
@@ -82,19 +84,29 @@ int main(int argc, char **argv) {
       PrintMatrix(nsc->l_norm, nsc->n, nsc->n);
       printf("Jacobi:\n");
       CalculateJacobi(nsc);
-      PrintMatrixJacobi(nsc);
+//      PrintMatrixJacobi(nsc);
       printf("\n");
-      PrintMatrix(nsc->eigen_vectors, nsc->n, nsc->n);
+      PrintMatrixJacobi(nsc);
+//      PrintMatrix(nsc->eigen_vectors, nsc->n, nsc->n);
+//      printf("a:\n");
+//      PrintMatrix(a,3,3);
+//      printf("p:\n");
+//      nsc->n = 3;
+//      p = Pmatrix(a, 3, nsc);
+//      PrintMatrix(p,3,3);
+//      printf("\n");
+//      printf("a':\n");
+//      PrintMatrix(CalculateATag(a,p,nsc),3,3);
       break;
   }
   DestructNsc(nsc);
   return 0;
 }
-void PrintMatrix(double *matrix, int rows, int columns) {
+void PrintMatrix(double matrix[], int rows, int columns) {
   int i, j;
   for (i = 0; i < rows; i++) {
     for (j = 0; j < columns; j++) {
-      printf("%.3f", matrix[i * columns + j]); /* matrix[i][j]*/
+      printf("%.3f", matrix[i * rows + j]); /* matrix[i][j]*/
       if (j != columns - 1)
         printf(",");
     }
@@ -172,13 +184,12 @@ void CalculateDiagonalDegreeMatrix(Nsc *nsc) {
   }
 }
 void CalculateNormalizedGraphLaplacian(Nsc *nsc) {
-  /* nsc->l_norm = SubTwoMatrices(IdentityMatrix(nsc),
-                 MultiplyTwoMatrices(
-                     MultiplyTwoMatrices(nsc->ddg, nsc->wam,nsc),
-                     nsc->ddg,nsc),nsc); */
   double *identity;
-  double *inversedD_W;
-  double *inversedD_W_inversedD;
+  double *inversed_dw;
+  double *inversed_dw_inversed_d;
+  CalculateWeightedAdjacencyMatrix(nsc);
+  CalculateDiagonalDegreeMatrix(nsc);
+  InversedSqrtDiagonalDegreeMatrix(nsc);
   identity = IdentityMatrix(nsc->n);
   assert(identity != NULL);
   InversedSqrtDiagonalDegreeMatrix(nsc);
@@ -201,10 +212,10 @@ A = A'
 (e) Calculate the eigenvectors of A by multiplying all the rotation matrices:
 V = P 1 P 2 P 3 . . .
  * */
-void CalculateJacobi(Nsc *nsc) {
+double* CalculateJacobi(double Symmetric_matrix[], int n) {
   double *p, *a_tag, *a, *v;
   double convergence;
-  int num_iteration, i, n = nsc->n;
+  int num_iteration, i;
   num_iteration = 0;
   /* on a_help we do the matrix operation instead of
    * overwriting l_norm */
@@ -218,11 +229,9 @@ void CalculateJacobi(Nsc *nsc) {
   v = IdentityMatrix(n);
   assert(v != NULL);
   while(num_iteration < 100){
-    if (num_iteration == 1)
-      PrintMatrix(v, n, n);
     p = Pmatrix(a, n, nsc);
     assert(p != NULL);
-    a_tag = CalculateATag(a, p, nsc);
+    a_tag = CalculateATag(a,p,nsc);
     assert(a_tag != NULL);
     v = MultiplyTwoMatrices(v, p, n);
     assert(v != NULL);
@@ -345,7 +354,7 @@ void DestructNsc(Nsc *nsc) {
   free(nsc);
 }
 void CalculateNandD(Nsc *nsc, FILE *input_file) {
-  /* calculate number of input data points and dimensionality */
+  /* calculate number of input data data_points and dimensionality */
   char c;
   nsc->n = 0;
   nsc->d = 0;
@@ -378,7 +387,7 @@ void InitDataPointsMatrix(Nsc *nsc, FILE *input_file) {
   }
 }
 double CalculateWeight(int i, int j, Nsc *nsc) {
-  /* i and j are the data points we want to find their weight */
+  /* i and j are the data data_points we want to find their weight */
   int k;
   double result;
   double *vector_i, *vector_j;
@@ -395,11 +404,28 @@ double CalculateWeight(int i, int j, Nsc *nsc) {
   free(vector_j);
   return result;
 }
-void CalculateATag(double a[], Nsc *nsc) {
+double* CalculateATag(double a[], double p[], Nsc *nsc) {
+  /* the commented code is a' calculation using standard calculation. */
+  double *a_tag, *p_transpose, *help;
+  int n = nsc->n;
+  p_transpose = Transpose(p, n);
+
+  assert(p_transpose != NULL);
+  help = MultiplyTwoMatrices(p_transpose, a, n);
+  assert(help != NULL);
+  a_tag = MultiplyTwoMatrices(help, p, n);
+  assert(a_tag != NULL);
+  free(p_transpose);
+  free(help);
+  return a_tag;
+
+}
+double* CalculateATagEfficient(double a[], Nsc *nsc) {
+  /* the commented code is a' calculation using efficient calculation. */
   int i = nsc->i_max, j = nsc->j_max, n = nsc->n;
   double c = nsc->c, s = nsc->s;
   double *a_tag;
-  a_tag = malloc(n * n * sizeof(double));
+  a_tag = calloc(n * n, sizeof(double));
   assert(a_tag != NULL);
   int r;
   for (r = 0; r < n; ++r) {
@@ -409,9 +435,11 @@ void CalculateATag(double a[], Nsc *nsc) {
     }
   }
   a_tag[i * n + i] = c * c * a[i * n + i] + s * s * a[j * n + j] - 2 * s * c * a[i * n + j];
-  a_tag[j * n + j] = c * c * a[i * n + i] + s * s * a[j * n + j] + 2 * s * c * a[i * n + j];
+  a_tag[j * n + j] = s * s * a[i * n + i] + c * c * a[j * n + j] + 2 * s * c * a[i * n + j];
+  assert((c*c-s*s)*a[i * n + j] + s*c*(a[i * n + i]-a[j * n + j]) == 0);
   a_tag[i * n + j] = 0;
   CopyMatrix(a, a_tag, n);
+  return a_tag;
 }
 
 /****** The Eigen-gap Heuristic for finding number of clusters - K
@@ -459,7 +487,7 @@ double CalculateEuclideanDistance(double vector_1[], double vector_2[], int d) {
    * as defined in the project requirements.
    */
   double sum_of_squares = 0;
-  int i = 0;
+  int i;
   for (i = 0; i < d; ++i)
     sum_of_squares += pow(vector_2[i] - vector_1[i], 2);
   return sqrt(sum_of_squares);
@@ -515,7 +543,7 @@ int CheckDiagonal(const double a[], int n) {
   return 1;
 }
   /* this func return the index of the min value in a given array */
-int IndexOfMinValue(double *values, int n) {
+int IndexOfMinValue(const double *values, int n) {
     int i;
     double min;
     int min_index;
@@ -530,7 +558,7 @@ int IndexOfMinValue(double *values, int n) {
     return min_index;
 }
 /*this func calculates the max of a given array*/
-double FindMax(double *values, int n) {
+double FindMax(const double *values, int n) {
     int i;
     double max;
     max = values[0];
@@ -543,18 +571,18 @@ double FindMax(double *values, int n) {
 }
 double* Transpose(double a[], int n) {
   int i, j;
-  double tmp;
+  double *transpose = malloc(n * n * sizeof(double));
+  assert(transpose != NULL);
   for (i = 0; i < n; ++i) {
     for (j = 0; j < n; ++j) {
-      tmp = a[i * n + j];
-      a[i * n + j] = a[j * n + i];
-      a[j * n + i] = tmp;
+      transpose[j * n + i] = a[i * n + j];
     }
   }
+  return transpose;
 }
 
 /*this func calculates U matrix*/
-double *Umatrix(int n, int k, double *new_vectors) {
+double *UMatrix(int n, int k, const double *new_vectors) {
     double *u;
     int i, j;
     u = calloc(n * k, sizeof(double));
@@ -570,7 +598,7 @@ double *Umatrix(int n, int k, double *new_vectors) {
 }
 
 /*this func calculates T matrix*/
-double **Tmatrix(double *u, int n, int k) {
+double **TMatrix(double *u, int n, int k) {
     double *t;
     int i, j;
     double sum;

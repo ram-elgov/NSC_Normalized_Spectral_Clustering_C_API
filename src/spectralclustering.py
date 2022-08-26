@@ -1,18 +1,19 @@
+import spkmeansmodule
 import sys
 import numpy as np
 import pandas as pd
 from argparse import *
+
 np.random.seed(0)
 
 
-
-class spkmeans:
+class SpectralClustering:
     """ main data structure to support the algorithm implementation """
 
     def __init__(self, n, d, k, goal, data_points):
         """"
-        reads the data points from the given input file into an array.
-        :param n: number of data points in the input file. (<=1000)
+        reads the data data_points from the given input file into an array.
+        :param n: number of data data_points in the input file. (<=1000)
         :param d: the dimension of each data point. 
         :param k: Number of required clusters (0 <= k < n)
         :param goal: Can get the following values:
@@ -27,7 +28,8 @@ class spkmeans:
         self.d = d
         self.k = k
         self.goal = goal
-        # here we want a function that reads the data points into self.data_points
+        # here we want a function that reads the data data_points into self.data_points
+
 
 def parse_input():
     """
@@ -44,13 +46,12 @@ def parse_input():
     data_points = pd.read_csv(file_name, header=None)
     n = data_points.shape[0]
     d = data_points.shape[1]
-    k = args.k # if k == 0 use the Eigengap Heuristic
+    k = args.k  # if k == 0 use the Eigengap Heuristic
     if (not k.isdigit()) or (not (0 <= k < n)):
         invalid_input()
     k = int(k)
     goal = args.goal
-    return spkmeans(n, d, k, goal, data_points)
-    # כדי לוודא את K אני צריך לדעת מה הn האקטואלי (אני יודע שהוא לא יותר גדול מ1000 אבל זה לא מספיק)
+    return SpectralClustering(n, d, k, goal, data_points)
 
 
 # parse data and call the appropriate spkmeans function based on the goal
@@ -58,12 +59,29 @@ def parse_input():
 def invalid_input():
     print("Invalid Input!")
     sys.exit()
+
+
 def general_error():
     print("An Error Has Occurred")
     sys.exit()
 
+
 def main():
-    parse_input()
+    eigen_vectors = spkmeansmodule.fit()
+    initial_centroids = k_means_pp()
+    spkmeansmodule.fit_kmeans(eigen_vectors, initial_centroids)
+    if spk.goal == 'spk':
+        pass
+    elif spk.goal == "wam":
+        spectral_clustering
+    elif spk.goal == "ddg":
+        pass
+    elif spk.goal == "lnorm":
+        pass
+    elif spk.goal == "jacobi":
+        pass
+    else:
+        invalid_input()
 
 
 if __name__ == '__main__':

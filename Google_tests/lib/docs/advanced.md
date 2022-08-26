@@ -696,7 +696,7 @@ Some tips on using `SCOPED_TRACE`:
     particular invocation of a sub-routine. In this case, you don't have to
     choose a unique message for `SCOPED_TRACE`. You can simply use `""`.
 4.  You can use `SCOPED_TRACE` in an inner scope when there is one in the outer
-    scope. In this case, all active trace points will be included in the failure
+    scope. In this case, all active trace data_points will be included in the failure
     messages, in reverse order they are encountered.
 5.  The trace dump is clickable in Emacs - hit `return` on a line number and
     you'll be taken to that line in the source file!

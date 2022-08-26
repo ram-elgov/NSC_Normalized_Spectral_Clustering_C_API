@@ -16,3 +16,6 @@ add_subdirectory(src)
 target_link_libraries(NSC_run src)
 
 add_subdirectory(Google_tests)
+find_package(PythonLibs REQUIRED)
+include_directories(${PYTHON_INCLUDE_DIRS})
+target_link_libraries(NSC_run ${PYTHON_LIBRARIES})

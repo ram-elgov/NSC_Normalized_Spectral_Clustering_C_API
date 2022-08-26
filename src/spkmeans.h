@@ -1,11 +1,11 @@
-#ifndef SPECTRAL_CLUSTERING__SPKMEANS_H_
-#define SPECTRAL_CLUSTERING__SPKMEANS_H_
+#ifndef NSC___NORMALIZED_SPECTRAL_CLUSTERING_C_API_SRC_SPKMEANS_H_
+#define NSC___NORMALIZED_SPECTRAL_CLUSTERING_C_API_SRC_SPKMEANS_H_
 /*
  * the spectral clustering API (library functions)
  * */
 typedef struct normalized_spectral_clustering {
   /**
-   * n: number of data points
+   * n: number of data data_points
    * d: data point dimension
    * k: number of required clusters
    */
@@ -41,6 +41,8 @@ void TransposeMatrix(double matrix[], int n);
 double CalculateWeight(int i, int j, Nsc *nsc);
 double* CalculateATag(double a[], double p[], Nsc *nsc);
 int FindK(double *values, const double *vectors, double *new_vectors, int n, int k);
+double *UMatrix(int n, int k, const double *new_vectors);
+double **TMatrix(double *u, int n, int k);
 
 /* Math helper functions */
 double CalculateEuclideanDistance(double vector_1[], double vector_2[], int d);
@@ -48,8 +50,8 @@ double *SubTwoMatrices(const double matrix_1[], const double matrix_2[], int n);
 double *MultiplyTwoMatrices(const double matrix_1[], const double matrix_2[], int n);
 double *IdentityMatrix(int n);
 int CheckDiagonal(const double a[], int n);
-int IndexOfMinValue(double *values, int n);
-double FindMax(double *values, int n);
+int IndexOfMinValue(const double *values, int n);
+double FindMax(const double *values, int n);
 double *Transpose(double matrix[], int n);
 
 
@@ -58,4 +60,4 @@ void InvalidInput();
 void GeneralError();
 void PrintMatrix(double *matrix, int rows, int columns);
 void PrintMatrixJacobi(Nsc *nsc);
-#endif /* SPECTRAL_CLUSTERING__SPKMEANS_H_ */
+#endif /* NSC___NORMALIZED_SPECTRAL_CLUSTERING_C_API_SRC_SPKMEANS_H_ */

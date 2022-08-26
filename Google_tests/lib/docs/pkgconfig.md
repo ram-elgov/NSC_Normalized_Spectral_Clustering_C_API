@@ -123,7 +123,7 @@ $ pkg-config --libs gtest
 -L/usr/lib64 -lgtest -lpthread
 ```
 
-which is obviously wrong and points to the `CBUILD` and not `CHOST` root. In
+which is obviously wrong and data_points to the `CBUILD` and not `CHOST` root. In
 order to use this in a cross-compilation setting, we need to tell pkg-config to
 inject the actual sysroot into `-I` and `-L` variables. Let us now tell
 pkg-config about the actual sysroot
