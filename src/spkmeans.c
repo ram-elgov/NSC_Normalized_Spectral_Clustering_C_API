@@ -78,7 +78,7 @@ int main(int argc, char **argv) {
       PrintMatrix(nsc->ddg, nsc->n, nsc->n);
       InversedSqrtDiagonalDegreeMatrix(nsc);
       printf("Inversed sqrt ddg:\n");
-      PrintMatrix(nsc->ddg, nsc->n, nsc->n);
+      PrintMatrix(nsc->inversed_sqrt_ddg, nsc->n, nsc->n);
       CalculateNormalizedGraphLaplacian(nsc);
       printf("lnorm:\n");
       PrintMatrix(nsc->l_norm, nsc->n, nsc->n);
@@ -118,7 +118,7 @@ void PrintMatrixJacobi(Nsc *nsc) {
   int i;
   int n = nsc->n;
   for (i = 0; i < n; i++) {
-    if (nsc->eigen_values[i] > -0.00005 && nsc->eigen_values[i] < 0) {
+    if (nsc->eigen_values[i] > -0.00001 && nsc->eigen_values[i] < 0) {
       if (i < n - 1) {
         printf("%.3f%s", fabs(nsc->eigen_values[i]), ",");
       } else {
@@ -173,8 +173,6 @@ void CalculateWeightedAdjacencyMatrix(Nsc *nsc) {
 void CalculateDiagonalDegreeMatrix(Nsc *nsc) {
   double val;
   int i, j;
-  nsc->ddg = calloc(nsc->n * nsc->n , sizeof(double));
-  assert(nsc->ddg != NULL);
   for(i = 0; i < nsc->n; i++) {
       val = 0;
       for (j = 0; j < nsc->n; j++) {
@@ -193,11 +191,11 @@ void CalculateNormalizedGraphLaplacian(Nsc *nsc) {
   identity = IdentityMatrix(nsc->n);
   assert(identity != NULL);
   InversedSqrtDiagonalDegreeMatrix(nsc);
-  inversedD_W = MultiplyTwoMatrices(nsc->ddg, nsc->wam, nsc->n);
-  assert(inversedD_W != NULL);
-  inversedD_W_inversedD = MultiplyTwoMatrices(inversedD_W, nsc->ddg, nsc->n);
-  assert(inversedD_W_inversedD != NULL);
-  nsc->l_norm = SubTwoMatrices(identity, inversedD_W_inversedD, nsc->n);
+  inversed_dw = MultiplyTwoMatrices(nsc->inversed_sqrt_ddg, nsc->wam, nsc->n);
+  assert(inversed_dw != NULL);
+  inversed_dw_inversed_d = MultiplyTwoMatrices(inversed_dw, nsc->inversed_sqrt_ddg, nsc->n);
+  assert(inversed_dw_inversed_d != NULL);
+  nsc->l_norm = SubTwoMatrices(identity, inversed_dw_inversed_d, nsc->n);
   assert(nsc->l_norm != NULL);
   free(identity);
 }
@@ -212,20 +210,20 @@ A = A'
 (e) Calculate the eigenvectors of A by multiplying all the rotation matrices:
 V = P 1 P 2 P 3 . . .
  * */
-double* CalculateJacobi(double Symmetric_matrix[], int n) {
+void CalculateJacobi(Nsc *nsc) {
   double *p, *a_tag, *a, *v;
   double convergence;
-  int num_iteration, i;
+  int num_iteration, i, n = nsc->n;
   num_iteration = 0;
   /* on a_help we do the matrix operation instead of
    * overwriting l_norm */
-  a = malloc(n * n * sizeof(double));
+  a = calloc(n * n, sizeof(double));
   assert(a != NULL);
-  CopyMatrix(a, nsc->l_norm, n);
+  CopyMatrix(a, nsc->l_norm, n, n);
   /*  */
-  a_tag = malloc(n * n * sizeof(double));
+  a_tag = calloc(n * n, sizeof(double));
   assert(a_tag != NULL);
-  CopyMatrix(a_tag, a, n);
+  CopyMatrix(a_tag, a, n,n);
   v = IdentityMatrix(n);
   assert(v != NULL);
   while(num_iteration < 100){
@@ -237,14 +235,14 @@ double* CalculateJacobi(double Symmetric_matrix[], int n) {
     assert(v != NULL);
     convergence = (Off(a, n) - Off(a_tag, n));
     if(convergence <= nsc->epsilon){
-      CopyMatrix(a, a_tag, n);
+      CopyMatrix(a, a_tag, n,n);
       break;
       assert(a != NULL);
     }
-    CopyMatrix(a, a_tag, n);
+    CopyMatrix(a, a_tag, n,n);
     assert(a != NULL);
     num_iteration++;
-    CopyMatrix(nsc->eigen_vectors, v, n);
+    CopyMatrix(nsc->eigen_vectors, v, n,n);
   }
   for (i = 0; i < nsc->n; ++i) {
     nsc->eigen_values[i] = a[i * n + i];
@@ -265,70 +263,66 @@ void InversedSqrtDiagonalDegreeMatrix(Nsc *nsc){
   int i;
   for(i = 0; i < nsc->n; i++) {
     val = (nsc->ddg)[i * nsc->n + i];
-    (nsc->ddg)[i * nsc->n + i] = 1 / (sqrt(val));
+    (nsc->inversed_sqrt_ddg)[i * nsc->n + i] = 1 / (sqrt(val));
   }
 }
-
-double *SubTwoMatrices(double matrix_1[], double matrix_2[], int n){
-  double *sub = calloc(n*n, sizeof(double));
-  int i, j;
-  assert(sub != NULL);
-  for(i = 0; i < n; i++){
-      for(j = 0; j  < n; j++){
-        sub[i * n + j] = matrix_1[i * n + j] - matrix_2[i * n + j];
-      }
+double *Pmatrix(double a[], int n, Nsc *nsc){
+  int i,j,i_max,j_max;
+  double c,s,teta,t,max;
+  double *p;
+  max = a[1];
+  i_max = 0;
+  j_max = 1;
+  p = IdentityMatrix(n);
+  if(p == NULL){
+    return NULL;
   }
-  return sub;
-}
-
-double *MultiplyTwoMatrices(double matrix_1[], double matrix_2[], int n){
-  double *multiply = calloc(n * n, sizeof(double));
-  assert(multiply != NULL);
-  int i,j,k;
   for(i = 0; i < n; i++){
-    for(j = 0; j < n; j++){
-      for(k = 0; k < n; k++){
-        multiply[i * n + j] += matrix_1[i * n + k] * matrix_2[k * n + j];
+    for(j = i + 1; j < n; j++){
+      if(fabs(a[i * n + j]) > fabs(max)){
+        max = a[i * n + j];
+        i_max = i;
+        j_max = j;
       }
     }
   }
-  return multiply;
+  teta = (a[j_max * n + j_max] - a[i_max * n + i_max]) / (2 * max);
+  if (teta >= 0) {
+    t = 1 / (fabs(teta) + sqrt(1 + teta * teta));
+  } else {
+    t = -1 / (fabs(teta) + sqrt(1 + teta * teta));
+  }
+  c = 1 / (sqrt(t * t + 1));
+  s = t * c;
+  p[i_max * n + i_max] = c;
+  p[j_max * n + j_max] = c;
+  p[i_max * n + j_max] = s;
+  p[j_max * n + i_max] = -1 * s;
+  nsc->s = s;
+  nsc->c = c;
+  nsc->i_max = i_max;
+  nsc->j_max = j_max;
+  return p;
 }
-
-double *IdentityMatrix(int n){
-  double *identity = calloc(n * n, sizeof(double));
-  assert(identity != NULL);
-  int i, j;
+double Off(double a[], int n){
+  double off = 0.0;
+  int i,j;
   for(i = 0; i < n; i++){
     for(j = 0; j < n; j++){
-      if(i == j){
-        identity[i * n + j] = 1.0;
-      } else {
-        identity[i * n + j] = 0.0;
+      if(i != j){
+        off += pow(a[i * n + j], 2);
       }
     }
   }
-  return identity;
+  return off;
 }
-
-void CalculateNormalizedGraphLaplacian(Nsc *nsc) {
-  /* nsc->l_norm = SubTwoMatrices(IdentityMatrix(nsc),
-                 MultiplyTwoMatrices(
-                     MultiplyTwoMatrices(nsc->ddg, nsc->wam,nsc),
-                     nsc->ddg,nsc),nsc); */
-  double *identity;
-  double *inversedD_W;
-  double *inversedD_W_inversedD;
-  identity = IdentityMatrix(nsc->n);
-  assert(identity != NULL);
-  InversedSqrtDiagonalDegreeMatrix(nsc);
-  inversedD_W = MultiplyTwoMatrices(nsc->ddg, nsc->wam, nsc->n);
-  assert(inversedD_W != NULL);
-  inversedD_W_inversedD = MultiplyTwoMatrices(inversedD_W, nsc->ddg, nsc->n);
-  assert(inversedD_W_inversedD != NULL);
-  nsc->l_norm = SubTwoMatrices(identity, inversedD_W_inversedD, nsc->n);
-  assert(nsc->l_norm != NULL);
-  free(identity);
+void CopyMatrix(double a[], const double b[], int n, int d){
+  int i,j;
+  for(i = 0; i < n; i++){
+    for(j = 0; j < d; j++){
+      a[i * n + j] = b[i * n + j];
+    }
+  }
 }
 void ConstructNsc(Nsc *nsc, FILE *input_file, double epsilon) {
   nsc->epsilon = epsilon;
@@ -438,37 +432,40 @@ double* CalculateATagEfficient(double a[], Nsc *nsc) {
   a_tag[j * n + j] = s * s * a[i * n + i] + c * c * a[j * n + j] + 2 * s * c * a[i * n + j];
   assert((c*c-s*s)*a[i * n + j] + s*c*(a[i * n + i]-a[j * n + j]) == 0);
   a_tag[i * n + j] = 0;
-  CopyMatrix(a, a_tag, n);
+  CopyMatrix(a, a_tag, n,n);
   return a_tag;
 }
 
 /****** The Eigen-gap Heuristic for finding number of clusters - K
  * values[n] , vectors[n * n], new_vectors[n * n]*****************/
-int FindK(double *values, const double *vectors, double *new_vectors, int n, int k) {
-  double *new_values, maximum;
+int FindK(Nsc *nsc, int k) {
+  double *new_values, *new_vectors, maximum;
   int i, j, index, max_index;
   double max = 0;
-  new_values = calloc(n, sizeof(double));
-  if (new_values == NULL) {
+  new_values = calloc(nsc->n, sizeof(double));
+  new_vectors = calloc(nsc->n * nsc->n, sizeof(double));
+  if (new_values == NULL || new_vectors == NULL) {
     return -1;
   }
-  maximum = FindMax(values, n);
-  for (i = 0; i < n; i++) {
-    index = IndexOfMinValue(values, n);
-    new_values[i] = values[index];
-    for (j = 0; j < n; j++) {
-      new_vectors[j * n + i] = vectors[j * n + index];
+  maximum = FindMax(nsc->eigen_values, nsc->n);
+  for (i = 0; i < nsc->n; i++) {
+    index = IndexOfMinValue(nsc->eigen_values, nsc->n);
+    new_values[i] = nsc->eigen_values[index];
+    for (j = 0; j < nsc->n; j++) {
+      new_vectors[j * nsc->n + i] = nsc->eigen_vectors[j * nsc->n + index];
     }
-    values[index] = maximum + 1;
+    nsc->eigen_values[index] = maximum + 1;
   }
-  for (i = 0; i < n; i++) {
-    values[i] = new_values[i];
+  for (i = 0; i < nsc->n; i++) {
+    nsc->eigen_values[i] = new_values[i];
   }
   free(new_values);
+  CopyMatrix(nsc->eigen_vectors, new_vectors, nsc->n, nsc->n);
+  free(new_vectors);
   if (k == 0) {
-    for (i = 0; i < floor(n / 2); i++) {
-      if (max < fabs(new_values[i] - new_values[i + 1])) {
-        max = fabs(new_values[i] - new_values[i + 1]);
+    for (i = 0; i < floor(nsc->n / 2); i++) {
+      if (max < fabs(nsc->eigen_values[i] - nsc->eigen_values[i + 1])) {
+        max = fabs(nsc->eigen_values[i] - nsc->eigen_values[i + 1]);
         max_index = i;
       }
     }
@@ -569,7 +566,7 @@ double FindMax(const double *values, int n) {
     }
     return max;
 }
-double* Transpose(double a[], int n) {
+double *Transpose(double a[], int n) {
   int i, j;
   double *transpose = malloc(n * n * sizeof(double));
   assert(transpose != NULL);
@@ -582,23 +579,21 @@ double* Transpose(double a[], int n) {
 }
 
 /*this func calculates U matrix*/
-double *UMatrix(int n, int k, const double *new_vectors) {
+double *UMatrix(Nsc *nsc, int k) {
     double *u;
     int i, j;
-    u = calloc(n * k, sizeof(double));
-    if (u == NULL) {
-        return NULL;
-    }
-    for (i = 0; i < n; i++) {
+    u = calloc(nsc->n * k, sizeof(double));
+    assert(u != NULL);
+    for (i = 0; i < nsc->n; i++) {
         for (j = 0; j < k; j++) {
-            u[i * n + j] = new_vectors[i * n + j];
+            u[i * nsc->n + j] = nsc->eigen_vectors[i * nsc->n + j];
         }
     }
     return u;
 }
 
 /*this func calculates T matrix*/
-double **TMatrix(double *u, int n, int k) {
+double* TMatrix(double *u, int n, int k) {
     double *t;
     int i, j;
     double sum;

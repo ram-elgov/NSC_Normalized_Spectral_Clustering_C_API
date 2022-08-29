@@ -41,127 +41,159 @@ static PyObject *convert_data_points_c_to_python(double matrix[], int n, int d) 
   return py_data_points;
 }
 
-static PyObject *fit(PyObject *self, PyObject *args) {
-  /* lnorm()
-   * x = calculateJacobi(lnorm)
-   * final_centroids kmeans++(x)
-   * print(kmeans++ initial centroids)
-   * print(final_centroids)
-   *
-   * */
-  return NULL;
+/* java like syntax for constructor */
+void NSC(Nsc *nsc, double data_points[], int n, int d, double epsilon) {
+  nsc = malloc(sizeof(Nsc));
+  assert(nsc != NULL);
+  nsc->epsilon = epsilon;
+  nsc->n = n;
+  nsc->d = d;
+  nsc->matrix = malloc((nsc->n * nsc->d) * sizeof(double));
+  assert(nsc->matrix != NULL);
+  CopyMatrix(nsc->matrix, data_points,nsc->n, nsc->d);
+  nsc->eigen_values = malloc(nsc->n * sizeof(double));
+  assert(nsc->eigen_values != NULL);
+  nsc->eigen_vectors = malloc(nsc->n * nsc->n * sizeof(double));
+  assert(nsc->eigen_vectors != NULL);
+  nsc->ddg = malloc(nsc->n * nsc->n * sizeof(double));
+  assert(nsc->ddg != NULL);
+  nsc->inversed_sqrt_ddg = malloc(nsc->n * nsc->n * sizeof(double));
+  assert(nsc->inversed_sqrt_ddg != NULL);
 }
 
+static PyObject *fit(PyObject *self, PyObject *args) {
+  /*Nsc *nsc;
+  double epsilon;
+  double *t;
+  PyObject *empty_list, *data_points_from_python;
+  int n, d, k;
+  if (!PyArg_ParseTuple(args, "Oiiid", &data_points_from_python, &n, &d, &k, &epsilon)) {
+    empty_list = PyList_New(0);
+    return empty_list;
+  }
+  if (!PyList_Check(data_points_from_python)) {
+    empty_list = PyList_New(0);
+    return empty_list;
+  }
+  NSC(nsc, convert_data_points_python_to_c(data_points_from_python,n,d), n, d, epsilon);
+  CalculateJacobi(nsc);
+  k = FindK(nsc, k);
+  t = TMatrix(  UMatrix(nsc, k), n, k);
+  return convert_data_points_c_to_python(t, nsc->n, k);*/
+  return PyLong_FromLong(1998);
+}
+//
 static PyObject *compute_wam(PyObject *self, PyObject *args) {
-  Nsc *nsc = malloc(sizeof(Nsc));
-  int length, d;
-  PyObject *pointsFrompython, *WmatrixforPy, *emptylist;
+  Nsc *nsc;
+  int n, d;
+  double epsilon;
+  PyObject *pointsFrompython, *WmatrixforPy, *empty_list;
   double *convertedtoCpoints;
-  if (!PyArg_ParseTuple(args, "Oii", &pointsFrompython, &length, &d)) {
-    emptylist = PyList_New(0);
-    return emptylist;
+  if (!PyArg_ParseTuple(args, "Oiid", &pointsFrompython, &n, &d, &epsilon)) {
+    empty_list = PyList_New(0);
+    return empty_list;
   }
   if (!PyList_Check(pointsFrompython)) {
-    emptylist = PyList_New(0);
-    return emptylist;
+    empty_list = PyList_New(0);
+    return empty_list;
   }
-  nsc->d = d;
-  nsc->n = length;
-  convertedtoCpoints = convert_data_points_python_to_c(pointsFrompython, length, d);
-  nsc->matrix = convertedtoCpoints;
+  NSC(nsc, convert_data_points_python_to_c(pointsFrompython, n, d) , n, d, epsilon);
   CalculateWeightedAdjacencyMatrix(nsc);
-  WmatrixforPy = convert_data_points_c_to_python(nsc->wam, length, length);
+  WmatrixforPy = convert_data_points_c_to_python(nsc->wam, n, n);
   free(convertedtoCpoints);
   free(nsc);
   return WmatrixforPy;
 }
-
-
-
-static PyObject *compute_ddg(PyObject *self, PyObject *args) {
-    int length;
-    Nsc *nsc = malloc(sizeof(Nsc));
-    PyObject *Wfrompython, *DforPython, *emptylist;
-    double *WfromC;
-
-    if (!PyArg_ParseTuple(args, "Oi", &Wfrompython, &length)) {
-        emptylist = PyList_New(0);
-        return emptylist;
-    }
-    if (!PyList_Check(Wfrompython)) {
-        emptylist = PyList_New(0);
-        return emptylist;
-    }
-    nsc->n = length;
-    WfromC = convert_data_points_python_to_c(Wfrompython, length, length);
-    nsc->matrix = WfromC;
-    CalculateWeightedAdjacencyMatrix(nsc);
-    CalculateDiagonalDegreeMatrix(nsc);
-    DforPython = convert_data_points_c_to_python(nsc->ddg, length, length);
-    free(WfromC);
-    return DforPython;
-}
-
-static PyObject *compute_lnorm(PyObject *self, PyObject *args) {
-  Nsc *nsc = malloc(sizeof(Nsc));
-  int length, d;
-  PyObject *pointsFrompython, *WmatrixforPy, *emptylist;
-  double *convertedtoCpoints;
-  if (!PyArg_ParseTuple(args, "Oii", &pointsFrompython, &length, &d)) {
-    emptylist = PyList_New(0);
-    return emptylist;
-  }
-  if (!PyList_Check(pointsFrompython)) {
-    emptylist = PyList_New(0);
-    return emptylist;
-  }
-  nsc->d = d;
-  nsc->n = length;
-  convertedtoCpoints = convert_data_points_python_to_c(pointsFrompython, length, d);
-  nsc->matrix = convertedtoCpoints;
-  CalculateWeightedAdjacencyMatrix(nsc);
-  return NULL;
-}
-
-static PyObject *compute_jacobi(PyObject *self, PyObject *args) {
-  int length, i, d, j;
-  PyObject *pointsfrompy, *jacobiforpy, *emptylist;
-  double *pointsforc, *values, *jacobiforc, *vectorsforc;
-  if (!PyArg_ParseTuple(args, "Oii", &pointsfrompy, &length, &d)) {
-    emptylist = PyList_New(0);
-    return emptylist;
-  }
-  if (!PyList_Check(pointsfrompy)) {
-    emptylist = PyList_New(0);
-    return emptylist;
-  }
-  pointsforc = convert_data_points_python_to_c(pointsfrompy, length, d);
-  values = calloc(length, sizeof(double));
-  vectorsforc = CalculateJacobi(pointsforc, values, length);
-  jacobiforc = calloc((length + 1) * (length + 1), sizeof(double));
-  for (i = 0; i < length; i++) {
-    jacobiforc[i] = values[i];
-  }
-  for (i = 0; i < length; i++) {
-    for (j = 0; j < length; j++) {
-      jacobiforc[(i + 1) * length + j] = vectorsforc[i * length + j];
-    }
-  }
-  jacobiforpy = convert_data_points_c_to_python(jacobiforc, length + 1, length);
-  free(values);
-  free(pointsforc);
-  free(jacobiforc);
-  free(vectorsforc);
-  return jacobiforpy;
-}
+//
+//static PyObject *compute_ddg(PyObject *self, PyObject *args) {
+//    int n;
+//    Nsc *nsc;
+//    PyObject *Wfrompython, *DforPython, *empty_list;
+//    double *WfromC;
+//    if (!PyArg_ParseTuple(args, "Oi", &Wfrompython, &n)) {
+//        empty_list = PyList_New(0);
+//        return empty_list;
+//    }
+//    if (!PyList_Check(Wfrompython)) {
+//        empty_list = PyList_New(0);
+//        return empty_list;
+//    }
+//    NSC(nsc, convert_data_points_python_to_c(Wfrompython, n, n), n, n, 0);
+//    CalculateWeightedAdjacencyMatrix(nsc);
+//    CalculateDiagonalDegreeMatrix(nsc);
+//    DforPython = convert_data_points_c_to_python(nsc->ddg, n, n);
+//    free(WfromC);
+//    return DforPython;
+//
+//}
+//
+//static PyObject *compute_lnorm(PyObject *self, PyObject *args) {
+//  Nsc *nsc = malloc(sizeof(Nsc));
+//  int length, d;
+//  PyObject *pointsFrompython, *WmatrixforPy, *empty_list;
+//  double *convertedtoCpoints;
+//  if (!PyArg_ParseTuple(args, "Oii", &pointsFrompython, &length, &d)) {
+//    empty_list = PyList_New(0);
+//    return empty_list;
+//  }
+//  if (!PyList_Check(pointsFrompython)) {
+//    empty_list = PyList_New(0);
+//    return empty_list;
+//  }
+//  nsc->d = d;
+//  nsc->n = length;
+//  convertedtoCpoints = convert_data_points_python_to_c(pointsFrompython, length, d);
+//  nsc->matrix = convertedtoCpoints;
+//  CalculateWeightedAdjacencyMatrix(nsc);
+//  return NULL;
+//}
+//
+//static PyObject *compute_jacobi(PyObject *self, PyObject *args) {
+//  int n, i, d, j;
+//  PyObject *points_from_py, *jacobi_for_py, *empty_list;
+//  double *points_for_c, *jacobi_for_c;
+//  Nsc *nsc = malloc(sizeof(Nsc));
+//  assert(nsc != NULL);
+//  if (!PyArg_ParseTuple(args, "Oii", &points_from_py, &n, &d)) {
+//    empty_list = PyList_New(0);
+//    return empty_list;
+//  }
+//  if (!PyList_Check(points_from_py)) {
+//    empty_list = PyList_New(0);
+//    return empty_list;
+//  }
+//  points_for_c = convert_data_points_python_to_c(points_from_py, n, d);
+//  nsc->d = d;
+//  nsc->n = n;
+//  nsc->matrix = points_for_c;
+//  nsc->eigen_values = calloc(n, sizeof(double));
+//  assert(nsc->eigen_values != NULL);
+//  CalculateJacobi(nsc);
+//  jacobi_for_c = calloc((n + 1) * (n + 1), sizeof(double));
+//  assert(jacobi_for_c != NULL);
+//  for (i = 0; i < n; i++) {
+//    jacobi_for_c[i] = nsc->eigen_values[i];
+//  }
+//  for (i = 0; i < n; i++) {
+//    for (j = 0; j < n; j++) {
+//      jacobi_for_c[(i + 1) * n + j] = nsc->eigen_vectors[i * n + j];
+//    }
+//  }
+//  jacobi_for_py = convert_data_points_c_to_python(jacobi_for_c, n + 1, n);
+//  free(nsc->eigen_values);
+//  free(nsc->eigen_vectors);
+//  free(points_for_c);
+//  free(jacobi_for_c);
+//  return jacobi_for_py;
+//}
 
 
 static PyMethodDef myMethods[] = {
-//    {"fit",      (PyCFunction) fit,      METH_VARARGS, PyDoc_STR("fit method for the spk algorithm")},
-    {"compute_wam",    (PyCFunction) compute_wam,    METH_VARARGS, PyDoc_STR("fit method")},
-//    {"compute_ddg",    (PyCFunction) compute_ddg,    METH_VARARGS, PyDoc_STR("fit method")},
-//    {"compute_lnorm",  (PyCFunction) compute_lnorm,  METH_VARARGS, PyDoc_STR("fit method")},
-//    {"compute_jacobi", (PyCFunction) compute_jacobi, METH_VARARGS, PyDoc_STR("fit method")},
+    {"fit",      (PyCFunction) fit,      METH_VARARGS, PyDoc_STR("fit method for the spk algorithm")},
+    /*{"compute_wam",    (PyCFunction) compute_wam,    METH_VARARGS, PyDoc_STR("fit method")},
+    {"compute_ddg",    (PyCFunction) compute_ddg,    METH_VARARGS, PyDoc_STR("fit method")},
+    {"compute_lnorm",  (PyCFunction) compute_lnorm,  METH_VARARGS, PyDoc_STR("fit method")},
+    {"compute_jacobi", (PyCFunction) compute_jacobi, METH_VARARGS, PyDoc_STR("fit method")},*/
     {NULL, NULL,                           0, NULL}
 };
 
