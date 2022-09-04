@@ -1,7 +1,8 @@
 from setuptools import setup, find_packages, Extension
 
 setup(
-    name='spkmeansmodule',
+    headers=['src/spkmeans.h'],
+    name='finalmodule',
     version='0.0.1',
     author="mohammad daghash and ram elgov",
     install_requires=['invoke'],
@@ -16,8 +17,12 @@ setup(
     ],
     ext_modules=[
         Extension(
-            'spkmeansmodule',
-            ['spkmeansmodule.c']
+            'finalmodule',
+            ['spkmeansmodule.c', 'spkmeans.c']
         )
     ]
 )
+
+
+
+

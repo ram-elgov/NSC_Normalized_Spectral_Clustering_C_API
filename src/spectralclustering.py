@@ -1,10 +1,9 @@
 import math
-
-import spkmeansmodule
 import sys
 import numpy as np
 import pandas as pd
 from argparse import *
+import finalmodule
 
 np.random.seed(0)
 MAX_ITER = 300
@@ -52,11 +51,13 @@ def parse_input():
     n = data_points.shape[0]
     d = data_points.shape[1]
     k = args.k  # if k == 0 use the Eigengap Heuristic
-    if (not k.isdigit()) or (not (0 <= k < n)):
+    if not k.isdigit():
         invalid_input()
     k = int(k)
+    if not 0 <= k < n:
+        invalid_input()
     goal = args.goal
-    return SpectralClustering(n, d, k, goal, data_points)
+    return SpectralClustering(n, d, k, goal, data_points.to_numpy().flatten().tolist(), MAX_ITER)
 
 
 # parse data and call the appropriate spkmeans function based on the goal
@@ -74,17 +75,11 @@ def general_error():
 def print_matrix(matrix, n, d):
     for i in range(n):
         for j in range(d):
-            print("%.4f", matrix[i * n + j])
             if j != d - 1:
-                print(",")
-        print("\n")
-
-
-def printmatrixjacobi(matrix, n):
-    for i in range(n):
-        if -0.00001 < matrix[i] < 0:
-            matrix[i] = abs(matrix[i])
-    print_matrix(matrix, n, n)
+                print('%.4f,' % matrix[i * d + j], end="")
+            else:
+                print('%.4f' % matrix[i * d + j], end="")
+        print("")
 
 
 class KMeans:
@@ -161,18 +156,19 @@ class KMeans:
 def main():
     spk = parse_input()
     if spk.goal == 'spk':
-        t = spkmeansmodule.fit(spk.data_points, spk.n, spk.d, spk.k)
+        pass
+        # t = finalmodule.fit(spk.data_points, spk.n, spk.d, spk.k)
         # initial_centroids = k_means_pp(t)
         # final_centroids = spkmeansmodule.fit_kmeans(t, initial_centroids)
     #     print_spk(initial_centroids, final_centroids)
     elif spk.goal == "wam":
-        print_matrix(spkmeansmodule.compute_wam(spk.data_points, spk.n, spk.d, ))
+        print_matrix(finalmodule.compute_wam(spk.data_points, spk.n, spk.d), spk.n, spk.n)
     elif spk.goal == "ddg":
-        print_matrix(spkmeansmodule.compute_ddg())
+        print_matrix(finalmodule.compute_ddg(spk.data_points, spk.n, spk.d), spk.n, spk.n)
     elif spk.goal == "lnorm":
-        pass
+        print_matrix(finalmodule.compute_lnorm(spk.data_points, spk.n, spk.d), spk.n, spk.n)
     elif spk.goal == "jacobi":
-        pass
+        print_matrix(finalmodule.compute_jacobi(spk.data_points, spk.n, spk.d), spk.n + 1, spk.n + 1)
     else:
         invalid_input()
 
@@ -180,5 +176,6 @@ def main():
 if __name__ == '__main__':
     try:
         main()
-    except Exception:
+    except Exception as e:
+        print(str(e) + "\n")
         general_error()
