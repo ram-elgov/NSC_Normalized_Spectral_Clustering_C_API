@@ -261,7 +261,7 @@ void RunJacobiCalculations(double a[], double a_tag[], double p[], double v[], i
   while (num_iteration < 100 && convergence > nsc->epsilon) {
     CalculateRotationMatrix(a, p, n, nsc); /* p is the rotation matrix for a */
     PrintMatrix(p, n, n);
-    CalculateATagEfficient(a, a_tag, nsc);
+    CalculateATag(a, a_tag, nsc);
     CopyMatrix(a, a_tag, n, n);
     CopyMatrix(v, nsc->eigen_vectors, n, n);
     MultiplyTwoMatrices(v,p,nsc->eigen_vectors,n);
