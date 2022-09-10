@@ -1,5 +1,5 @@
 #!/bin/bash
-# Script to compile and execute a c api program
+# Script to compile and execute the c api program
 python3 setup.py build_ext --inplace
 python3 setup.py install
 cd ..
