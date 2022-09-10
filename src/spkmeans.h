@@ -5,7 +5,8 @@ typedef enum {
   WAM,
   DDG,
   LNORM,
-  JACOBI
+  JACOBI,
+  FIT
 } Goal;
 typedef struct normalized_spectral_clustering {
   /**
@@ -25,7 +26,6 @@ typedef struct normalized_spectral_clustering {
 void InvalidInput();
 void GeneralError();
 void PrintMatrix(const double *matrix, int rows, int d);
-void PrintMatrixJacobi(Nsc *nsc);
 void AllocateMatrix(double **matrix, int n, int d);
 void FreeMatrix(double **matrix);
 void ChooseGoal(Nsc *nsc);
@@ -40,10 +40,14 @@ void CalculateNormalizedGraphLaplacian(Nsc *nsc);
 void CalculateJacobi(Nsc *nsc);
 
 /* API helper functions */
-void ConstructNsc(Nsc *nsc, double *data_points, int n, int d, Goal goal);
+void ConstructNsc(Nsc *nsc, double *data_points, int n, int d, Goal
+goal);
 void DestructNsc(Nsc *nsc);
 void CalculateNandD(const char file_name[], int *n, int *d);
-void BuildDataPointsMatrix(const char file_name[], double *data_points, int n, int d);
+void BuildDataPointsMatrix(const char file_name[],
+                           double *data_points,
+                           int n,
+                           int d);
 /* Let w_ij represent the weight of the connection between v_i and v_j . Only if w ij > 0, we define an edge
 between v_i and v_j. */
 void CalculateRotationMatrix(const double a[], double p[], int n, Nsc *nsc);
@@ -55,22 +59,26 @@ int Sign(double theta);
 double Off(double a[], int n);
 void CopyMatrix(double a[], const double b[], int n, int d);
 double CalculateWeight(int i, int j, Nsc *nsc);
-void CalculateATag(const double a[], double a_tag[], Nsc *nsc);
-void CalculateATagEfficient(const double a[], double a_tag[], Nsc *nsc);
+void CalculateAPrime(const double a[], double a_tag[], Nsc *nsc);
+void CalculateAPrimeEfficient(const double a[], double a_tag[], Nsc *nsc);
 int FindK(Nsc *nsc, int k);
-double *UMatrix(Nsc *nsc, int k);
-double *TMatrix(double *u, int n, int k);
-double *Convert2dto1d(double **matrix, int n, int d);
-double **Convert1dto2d(const double *matrix, int n, int d);
+int findK2(Nsc *nsc, int k);
+void CalculateUMatrix(Nsc *nsc, double *u, int k);
+void CalculateTMatrix(double *u, double *t, int n, int k);
 
 /* Math helper functions */
 double CalculateEuclideanDistance(double vector_1[], double vector_2[], int d);
-void SubTwoMatrices(const double matrix_1[], const double matrix_2[], double sub[], int n);
-void MultiplyTwoMatrices(const double matrix_1[], const double matrix_2[], double product[], int n);
+void SubTwoMatrices(const double matrix_1[],
+                    const double matrix_2[],
+                    double sub[],
+                    int n);
+void MultiplyTwoMatrices(const double matrix_1[],
+                         const double matrix_2[],
+                         double product[],
+                         int n);
 void IdentityMatrix(double identity[], int n);
 int CheckDiagonal(const double a[], int n);
 int IndexOfMinValue(const double *values, int n);
 double FindMax(const double *values, int n);
 void Transpose(const double a[], double transpose[], int n);
-
 #endif //TEST_SPKMEANS_LIB__SPKMEANS_H_

@@ -9,6 +9,21 @@ np.random.seed(0)
 MAX_ITER = 300
 
 
+def print_output_centroids(km):
+    """
+    outputs the final centroids calculated by kmeans.c
+    """
+    for centroid in km.output:
+        print(','.join(["%.4f" % coordinate for coordinate in centroid]))
+
+
+def print_centroid_indices(km):
+    """
+    outputs the final centroids indexes.
+    """
+    print(','.join([f"{int(i)}" for i in km.centroids_indices]))
+
+
 class SpectralClustering:
     """ main data structure to support the algorithm implementation """
 
@@ -29,10 +44,8 @@ class SpectralClustering:
         self.n = n
         self.d = d
         self.k = k
-        self.epsilon = 0.00001
         self.goal = goal
         self.max_iter = max_iter
-        # here we want a function that reads the data data_points into self.data_points
 
 
 def parse_input():
@@ -57,6 +70,7 @@ def parse_input():
     if not 0 <= k < n:
         invalid_input()
     goal = args.goal
+    # data_point is flattem and converted to a list to match C/API input
     return SpectralClustering(n, d, k, goal, data_points.to_numpy().flatten().tolist(), MAX_ITER)
 
 
@@ -87,17 +101,18 @@ class KMeans:
     data structure to store the required data for the algorithm.
     """
 
-    def __init__(self, k, file_name_1, file_name_2, epsilon, max_iter=MAX_ITER):
+    def __init__(self, k, epsilon, file_name_1=None, file_name_2=None, max_iter=MAX_ITER, data_points=None):
         self.k = k  # number of clusters
         self.max_iter = max_iter  # maximum number of iteration for the algorithm
         self.file_name_1 = file_name_1  # an input file with valid format of data points (text file)
         self.file_name_2 = file_name_2  # an input file to save the results into (text file)
         self.epsilon = epsilon  # the accepted error
         self.data_points = pd.array([])
-        self.initialize_data_points()
+        self.initialize_data_points(data_points)
         self.number_of_rows = self.data_points.shape[0]
         self.number_of_cols = self.data_points.shape[1]
-        self.data_points = self.data_points.to_numpy()
+        if data_points is None:
+            self.data_points = self.data_points.to_numpy()
         if not (1 < self.k < self.number_of_rows):
             invalid_input()
         self.centroids = pd.array([])
@@ -106,18 +121,21 @@ class KMeans:
         self.D = np.array([])
         self.P = np.array([])
 
-    def initialize_data_points(self, ):
+    def initialize_data_points(self, data_points=None):
         """
         reads and merge the two input files
         :return:
         """
-        input_1 = pd.read_csv(self.file_name_1, header=None)
-        input_2 = pd.read_csv(self.file_name_2, header=None)
-        self.data_points = pd.merge(input_1, input_2, how="inner", left_on=input_1.columns[0],
-                                    right_on=input_2.columns[0])
-        self.data_points.sort_values(by=self.data_points.columns[0], inplace=True)
-        self.data_points.drop(self.data_points.columns[0], axis=1, inplace=True)
-        # look https://moodle.tau.ac.il/mod/forum/discuss.php?d=104697 in the forum
+        if data_points is None:
+            input_1 = pd.read_csv(self.file_name_1, header=None)
+            input_2 = pd.read_csv(self.file_name_2, header=None)
+            self.data_points = pd.merge(input_1, input_2, how="inner", left_on=input_1.columns[0],
+                                        right_on=input_2.columns[0])
+            self.data_points.sort_values(by=self.data_points.columns[0], inplace=True)
+            self.data_points.drop(self.data_points.columns[0], axis=1, inplace=True)
+            # look https://moodle.tau.ac.il/mod/forum/discuss.php?d=104697 in the forum
+        else:
+            self.data_points = data_points
 
     def find_min_distance(self, data_point):
         """
@@ -156,11 +174,16 @@ class KMeans:
 def main():
     spk = parse_input()
     if spk.goal == 'spk':
-        pass
-        # t = finalmodule.fit(spk.data_points, spk.n, spk.d, spk.k)
-        # initial_centroids = k_means_pp(t)
-        # final_centroids = spkmeansmodule.fit_kmeans(t, initial_centroids)
-    #     print_spk(initial_centroids, final_centroids)
+        tuple_t_k = finalmodule.fit(spk.data_points, spk.n, spk.d, spk.k)
+        t = tuple_t_k[0]
+        spk.k = tuple_t_k[1]
+        t = np.reshape(t, (spk.n, spk.k))
+        kmeans = KMeans(spk.k, 0, file_name_1=None, file_name_2=None, data_points=t)
+        kmeans.k_means_pp()
+        print_centroid_indices(kmeans)
+        kmeans.output = finalmodule.fit_kmeans(
+            spk.n, spk.k, spk.max_iter, spk.k, kmeans.epsilon, kmeans.centroids.tolist(), kmeans.data_points.tolist())
+        print_output_centroids(kmeans)
     elif spk.goal == "wam":
         print_matrix(finalmodule.compute_wam(spk.data_points, spk.n, spk.d), spk.n, spk.n)
     elif spk.goal == "ddg":
@@ -168,7 +191,7 @@ def main():
     elif spk.goal == "lnorm":
         print_matrix(finalmodule.compute_lnorm(spk.data_points, spk.n, spk.d), spk.n, spk.n)
     elif spk.goal == "jacobi":
-        print_matrix(finalmodule.compute_jacobi(spk.data_points, spk.n, spk.d), spk.n + 1, spk.n + 1)
+        print_matrix(finalmodule.compute_jacobi(spk.data_points, spk.n, spk.d), spk.n + 1, spk.n)
     else:
         invalid_input()
 

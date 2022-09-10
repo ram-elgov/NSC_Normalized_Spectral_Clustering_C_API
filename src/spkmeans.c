@@ -45,8 +45,8 @@ int main(int argc, char **argv) {
 
   CalculateNandD(argv[2], &n, &d);
   AllocateMatrix(&data_points, n, d);
-  BuildDataPointsMatrix(argv[2],data_points, n,d);
-  ConstructNsc(&nsc,data_points, n, d, user_goal);
+  BuildDataPointsMatrix(argv[2], data_points, n, d);
+  ConstructNsc(&nsc, data_points, n, d, user_goal);
   /* run the required calculation based on the given goal */
   ChooseGoal(&nsc);
   /* Used memory de-allocation */
@@ -54,7 +54,6 @@ int main(int argc, char **argv) {
   DestructNsc(&nsc);
   return 0;
 }
-
 
 void PrintMatrix(const double *matrix, int n, int d) {
   int i, j;
@@ -112,8 +111,8 @@ void ChooseGoal(Nsc *nsc) {
       PrintMatrix(nsc->l_norm, nsc->n, nsc->n);
       break;
     case JACOBI:CalculateJacobi(nsc);
-//      PrintMatrix(nsc->eigen_values, 1, nsc->n);
-//      PrintMatrix(nsc->eigen_vectors, nsc->n, nsc->n);
+      PrintMatrix(nsc->eigen_values, 1, nsc->n);
+      PrintMatrix(nsc->eigen_vectors, nsc->n, nsc->n);
       break;
   }
 }
@@ -175,7 +174,10 @@ void CalculateNormalizedGraphLaplacian(Nsc *nsc) {
   InversedSqrtDiagonalDegreeMatrix(nsc);
   IdentityMatrix(identity, n);
   MultiplyTwoMatrices(nsc->inversed_sqrt_ddg, nsc->wam, inversed_dw, n);
-  MultiplyTwoMatrices(inversed_dw, nsc->inversed_sqrt_ddg, inversed_dw_inversed_d, n);
+  MultiplyTwoMatrices(inversed_dw,
+                      nsc->inversed_sqrt_ddg,
+                      inversed_dw_inversed_d,
+                      n);
   SubTwoMatrices(identity, inversed_dw_inversed_d, nsc->l_norm, n);
   /* Memory de-allocation*/
   FreeMatrix(&identity);
@@ -198,16 +200,21 @@ void CalculateJacobi(Nsc *nsc) {
   double *p, *a_tag, *a, *v;
   /* v is the product of all rotation matrices p1p2p3... */
   int i, n = nsc->n;
-  /* Memory allocation */
+  /* Memory allocation and initializations */
   AllocateMatrix(&a, n, n);
-  CopyMatrix(a, nsc->l_norm, n, n);
+  if (nsc->goal == FIT)
+    CopyMatrix(a, nsc->l_norm, n, n);
+  else
+    CopyMatrix(a, nsc->matrix, n, n);
   AllocateMatrix(&p, n, n);
   AllocateMatrix(&a_tag, n, n);
   CopyMatrix(a_tag, a, n, n);
   AllocateMatrix(&v, n, n);
+  IdentityMatrix(v, n);
+
   /* Preform calculations until epsilon convergence or
    * num_iteration exceeds 100 */
-  RunJacobiCalculations(a,a_tag, p, v, n, nsc);
+  RunJacobiCalculations(a, a_tag, p, v, n, nsc);
   /* Extract results */
   for (i = 0; i < nsc->n; ++i) {
     nsc->eigen_values[i] = a[i * n + i];
@@ -252,24 +259,32 @@ void CalculateRotationMatrix(const double a[], double p[], int n, Nsc *nsc) {
   nsc->i_pivot = i_pivot;
   nsc->j_pivot = j_pivot;
 }
-void RunJacobiCalculations(double a[], double a_tag[], double p[], double v[], int n,  Nsc *nsc) {
+void RunJacobiCalculations(double a[],
+                           double a_tag[],
+                           double p[],
+                           double v[],
+                           int n,
+                           Nsc *nsc) {
   /* Declerations */
   int num_iteration = 0;
   double convergence = nsc->epsilon + 1;
   /* v is the partial product of rotation matrecies p1p2p3... */
-  IdentityMatrix(nsc->eigen_vectors, n);
   while (num_iteration < 100 && convergence > nsc->epsilon) {
     CalculateRotationMatrix(a, p, n, nsc); /* p is the rotation matrix for a */
-    PrintMatrix(p, n, n);
-    CalculateATagEfficient(a, a_tag, nsc);
-    CopyMatrix(a, a_tag, n, n);
-    CopyMatrix(v, nsc->eigen_vectors, n, n);
-    MultiplyTwoMatrices(v,p,nsc->eigen_vectors,n);
+    CalculateAPrimeEfficient(a, a_tag, nsc);
     convergence = (Off(a, n) - Off(a_tag, n));
+    CopyMatrix(a, a_tag, n, n);
+    if (num_iteration > 0)
+      CopyMatrix(v, nsc->eigen_vectors, n, n);
+    MultiplyTwoMatrices(v, p, nsc->eigen_vectors, n);
     ++num_iteration;
   }
 }
-void FindPivot(const double a[], int n, double *pivot, int *i_pivot, int *j_pivot) {
+void FindPivot(const double a[],
+               int n,
+               double *pivot,
+               int *i_pivot,
+               int *j_pivot) {
   int i, j;
   for (i = 0; i < n; ++i) {
     for (j = i + 1; j < n; ++j) {
@@ -305,11 +320,17 @@ void CopyMatrix(double a[], const double b[], int n, int d) {
   }
 }
 void ConstructNsc(Nsc *nsc, double *data_points, int n, int d, Goal goal) {
+  nsc->epsilon = 0.00001;
   nsc->goal = goal;
   nsc->n = n;
   nsc->d = d;
   AllocateMatrix(&(nsc->matrix), nsc->n, nsc->d);
   CopyMatrix(nsc->matrix, data_points, n, d);
+  if (nsc->goal == JACOBI) {
+    AllocateMatrix(&(nsc->eigen_values), 1, n);
+    AllocateMatrix(&(nsc->eigen_vectors), n, n);
+    return;
+  }
   AllocateMatrix(&(nsc->wam), nsc->n, nsc->n);
   if (nsc->goal == WAM)
     return;
@@ -320,12 +341,19 @@ void ConstructNsc(Nsc *nsc, double *data_points, int n, int d, Goal goal) {
   AllocateMatrix(&(nsc->l_norm), nsc->n, nsc->n);
   if (nsc->goal == LNORM)
     return;
+  /* in case we called fit() from python we need to allocate
+   * memory for jacobi. */
   AllocateMatrix(&(nsc->eigen_values), 1, n);
   AllocateMatrix(&(nsc->eigen_vectors), n, n);
 
 }
 void DestructNsc(Nsc *nsc) {
   FreeMatrix(&(nsc->matrix));
+  if (nsc->goal == JACOBI) {
+    FreeMatrix(&(nsc->eigen_values));
+    FreeMatrix(&(nsc->eigen_vectors));
+    return;
+  }
   FreeMatrix(&(nsc->wam));
   if (nsc->goal == WAM)
     return;
@@ -336,6 +364,8 @@ void DestructNsc(Nsc *nsc) {
   FreeMatrix(&(nsc->l_norm));
   if (nsc->goal == LNORM)
     return;
+  /* in case we called fit() from python we need to de-allocate
+   * memory for jacobi. */
   FreeMatrix(&(nsc->eigen_values));
   FreeMatrix(&(nsc->eigen_vectors));
 }
@@ -360,7 +390,10 @@ void CalculateNandD(const char file_name[], int *n, int *d) {
       (*n) += 1;
   fclose(input_file);
 }
-void BuildDataPointsMatrix(const char file_name[], double *data_points, int n, int d) {
+void BuildDataPointsMatrix(const char file_name[],
+                           double *data_points,
+                           int n,
+                           int d) {
   double data;
   int i = 0;
   FILE *input_file = fopen(file_name, "r");
@@ -381,15 +414,17 @@ double CalculateWeight(int i, int j, Nsc *nsc) {
   vector_j = calloc(nsc->d, sizeof(double));
   assert(vector_j != NULL);
   for (k = 0; k < nsc->d; ++k) {
-    vector_i[k] = (nsc->matrix)[i * nsc->d + k]; /* coping the ith row from matrix */
-    vector_j[k] = (nsc->matrix)[j * nsc->d + k]; /* coping the jth row from matrix */
+    vector_i[k] =
+        (nsc->matrix)[i * nsc->d + k]; /* coping the ith row from matrix */
+    vector_j[k] =
+        (nsc->matrix)[j * nsc->d + k]; /* coping the jth row from matrix */
   }
   result = exp(-0.5 * CalculateEuclideanDistance(vector_i, vector_j, nsc->d));
   free(vector_i);
   free(vector_j);
   return result;
 }
-void CalculateATag(const double a[], double a_tag[], Nsc *nsc) {
+void CalculateAPrime(const double a[], double a_tag[], Nsc *nsc) {
   /* Declarations */
   double *p, *p_transpose, *help;
   int n = nsc->n;
@@ -404,59 +439,94 @@ void CalculateATag(const double a[], double a_tag[], Nsc *nsc) {
   free(help);
 
 }
-void CalculateATagEfficient(const double a[], double a_tag[], Nsc *nsc) {
+void CalculateAPrimeEfficient(const double a[], double a_tag[], Nsc *nsc) {
   int i = nsc->i_pivot, j = nsc->j_pivot, n = nsc->n;
   double c = nsc->c, s = nsc->s;
   int r;
   for (r = 0; r < n; ++r) {
     if (r != nsc->i_pivot && r != nsc->j_pivot) {
       a_tag[r * n + i] = c * a[r * n + i] - s * a[r * n + j];
+      a_tag[i * n + r] = a_tag[r * n + i];
       a_tag[r * n + j] = c * a[r * n + j] + s * a[r * n + i];
+      a_tag[j * n + r] = a_tag[r * n + j];
     }
   }
-  a_tag[i * n + i] = c * c * a[i * n + i] + s * s * a[j * n + j] - 2 * s * c * a[i * n + j];
-  a_tag[j * n + j] = s * s * a[i * n + i] + c * c * a[j * n + j] + 2 * s * c * a[i * n + j];
-  a_tag[i * n + j] = 0;
+  a_tag[i * n + i] =
+      c * c * a[i * n + i] + s * s * a[j * n + j] - 2 * s * c * a[i * n + j];
+  a_tag[j * n + j] =
+      s * s * a[i * n + i] + c * c * a[j * n + j] + 2 * s * c * a[i * n + j];
+  a_tag[i * n + j] = ((c * c) - (s * s)) * a[i * n + j] + s * c * (a[i * n + i]
+      - a[j * n + j]);
+  a_tag[j * n + i] = a_tag[i * n + j];
 }
 
 /****** The Eigen-gap Heuristic for finding number of clusters - K
  * values[n] , vectors[n * n], new_vectors[n * n]*****************/
 int FindK(Nsc *nsc, int k) {
   double *new_values, *new_vectors, maximum;
-  int i, j, index, max_index;
+  int i, j, index, max_index, n = nsc->n;
   double max = 0;
-  new_values = calloc(nsc->n, sizeof(double));
-  new_vectors = calloc(nsc->n * nsc->n, sizeof(double));
-  if (new_values == NULL || new_vectors == NULL) {
-    return -1;
-  }
-  maximum = FindMax(nsc->eigen_values, nsc->n);
-  for (i = 0; i < nsc->n; i++) {
-    index = IndexOfMinValue(nsc->eigen_values, nsc->n);
+  AllocateMatrix(&new_values,1, n);
+  AllocateMatrix(&new_vectors, n, n);
+  maximum = FindMax(nsc->eigen_values, n);
+  for (i = 0; i < n; i++) {
+    index = IndexOfMinValue(nsc->eigen_values, n);
     new_values[i] = nsc->eigen_values[index];
-    for (j = 0; j < nsc->n; j++) {
-      new_vectors[j * nsc->n + i] = nsc->eigen_vectors[j * nsc->n + index];
+    for (j = 0; j < n; j++) {
+      new_vectors[j * n + i] = nsc->eigen_vectors[j * n + index];
     }
     nsc->eigen_values[index] = maximum + 1;
   }
-  for (i = 0; i < nsc->n; i++) {
-    nsc->eigen_values[i] = new_values[i];
-  }
-  free(new_values);
-  CopyMatrix(nsc->eigen_vectors, new_vectors, nsc->n, nsc->n);
-  free(new_vectors);
   if (k == 0) {
-    for (i = 0; i < floor(nsc->n / 2.0); i++) {
-      if (max < fabs(nsc->eigen_values[i] - nsc->eigen_values[i + 1])) {
-        max = fabs(nsc->eigen_values[i] - nsc->eigen_values[i + 1]);
+    for (i = 0; i < floor(n / 2.0); i++) {
+      if (max < fabs(new_values[i] - new_values[i + 1])) {
+        max = fabs(new_values[i] - new_values[i + 1]);
         max_index = i;
       }
     }
+  }
+  CopyMatrix(nsc->eigen_values, new_values, 1, n);
+  FreeMatrix(&new_values);
+  CopyMatrix(nsc->eigen_vectors, new_vectors, n, n);
+  FreeMatrix(&new_vectors);
+  if (k == 0)
+    return max_index + 1;
+  return k;
+}
+int findK2(Nsc *nsc, int k) {
+  double *new_values, *new_vectors, maximum;
+  int i, j, index, max_index, n = nsc->n;
+  double max = 0;
+  AllocateMatrix(&new_values, 1, n);
+  AllocateMatrix(&new_vectors, n, n);
+  maximum = FindMax(nsc->eigen_values, n);
+  for (i = 0; i < n; i++) {
+    IndexOfMinValue(nsc->eigen_values, nsc->n);
+    new_values[i] = nsc->eigen_values[index];
+    for (j = 0; j < n; j++) {
+      new_vectors[j * nsc->n + i] = nsc->eigen_vectors[j * nsc->n + index];
+    }
+    nsc->eigen_values[index] = maximum + 1;;
+  }
+  if (k == 0) {
+    for (i = 0; i < floor(n / 2.0); i++) {
+      if (max < fabs(new_values[i] - new_values[i + 1])) {
+        max = fabs(new_values[i] - new_values[i + 1]);
+        max_index = i;
+      }
+    }
+  }
+  for (i = 0; i < n; i++) {
+    nsc->eigen_values[i] = new_values[i];
+  }
+  FreeMatrix(&new_values);
+  CopyMatrix(nsc->eigen_vectors, new_vectors, nsc->n, nsc->n);
+  FreeMatrix(&new_vectors);
+  if (k == 0) {
     return max_index + 1;
   }
   return k;
 }
-
 /*
  * Math helper functions
  */
@@ -471,7 +541,10 @@ double CalculateEuclideanDistance(double vector_1[], double vector_2[], int d) {
     sum_of_squares += pow(vector_2[i] - vector_1[i], 2);
   return sqrt(sum_of_squares);
 }
-void SubTwoMatrices(const double matrix_1[], const double matrix_2[], double sub[], int n) {
+void SubTwoMatrices(const double matrix_1[],
+                    const double matrix_2[],
+                    double sub[],
+                    int n) {
   int i, j;
   for (i = 0; i < n; i++) {
     for (j = 0; j < n; j++) {
@@ -479,13 +552,19 @@ void SubTwoMatrices(const double matrix_1[], const double matrix_2[], double sub
     }
   }
 }
-void MultiplyTwoMatrices(const double matrix_1[], const double matrix_2[], double product[], int n) {
+void MultiplyTwoMatrices(const double matrix_1[],
+                         const double matrix_2[],
+                         double product[],
+                         int n) {
   int i, j, k;
+  double sum_of_products = 0;
   for (i = 0; i < n; i++) {
     for (j = 0; j < n; j++) {
       for (k = 0; k < n; k++) {
-        product[i * n + j] += matrix_1[i * n + k] * matrix_2[k * n + j];
+        sum_of_products += matrix_1[i * n + k] * matrix_2[k * n + j];
       }
+      product[i * n + j] = sum_of_products;
+      sum_of_products = 0;
     }
   }
 }
@@ -533,11 +612,12 @@ double FindMax(const double *values, int n) {
   double max;
   max = values[0];
   for (i = 0; i < n; i++) {
-    if (max < values[i]) {
+    if (values[i] > max) {
       max = values[i];
     }
   }
   return max;
+
 }
 void Transpose(const double a[], double transpose[], int n) {
   int i, j;
@@ -549,64 +629,31 @@ void Transpose(const double a[], double transpose[], int n) {
 }
 
 /*this func calculates U matrix*/
-double *UMatrix(Nsc *nsc, int k) {
-  double *u;
+void CalculateUMatrix(Nsc *nsc, double *u, int k) {
   int i, j;
-  u = calloc(nsc->n * k, sizeof(double));
-  assert(u != NULL);
   for (i = 0; i < nsc->n; i++) {
     for (j = 0; j < k; j++) {
-      u[i * nsc->n + j] = nsc->eigen_vectors[i * nsc->n + j];
+      u[i * k + j] = nsc->eigen_vectors[i * nsc->n + j];
     }
   }
-  return u;
 }
 
 /*this func calculates T matrix*/
-double *TMatrix(double *u, int n, int k) {
-  double *t;
+void CalculateTMatrix(double *u, double *t, int n, int k) {
   int i, j;
   double sum;
-  t = calloc(n * k, sizeof(double));
-  if (t == NULL) {
-    return NULL;
-  }
   for (i = 0; i < n; i++) {
     sum = 0.0;
     for (j = 0; j < k; j++) {
-      sum += pow(u[i * n + j], 2);
+      sum += pow(u[i * k + j], 2);
     }
     sum = pow(sum, 0.5);
     for (j = 0; j < k; j++) {
       if (sum != 0) {
-        t[i * n + j] = u[i * n + j] / sum;
+        t[i * k + j] = u[i * k + j] / sum;
       } else {
-        t[i * n + j] = u[i * n + j];
+        t[i * k + j] = u[i * k + j];
       }
     }
   }
-  return t;
-}
-
-double *Convert2dto1d(double **matrix, int n, int d) {
-  int i, j;
-  double *matrix_1d = calloc(n * d, sizeof(double));
-  assert(matrix_1d != NULL);
-  for (i = 0; i < n; i++) {
-    for (j = 0; j < d; j++) {
-      matrix_1d[i * d + j] = matrix[i][j];
-    }
-  }
-  return matrix_1d;
-}
-
-double **Convert1dto2d(const double *matrix, int n, int d) {
-  int i, j;
-  double **matrix_2d = calloc(n * d, sizeof(double));
-  for (i = 0; i < n; i++) {
-    for (j = 0; j < d; j++) {
-      matrix_2d[i][j] = matrix[i * d + j];
-    }
-  }
-  return matrix_2d;
 }
