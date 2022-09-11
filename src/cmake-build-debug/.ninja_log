@@ -1,0 +1,4 @@
+# ninja log v5
+0	12	1660910285038257452	CMakeFiles/NSC___Normalized_Spectral_Clustering_C_API.dir/spkmeansmodule.c.o	5fdfcddb4a11b7d5
+0	27	1660910285054256925	CMakeFiles/NSC___Normalized_Spectral_Clustering_C_API.dir/spkmeans.c.o	bb77bca877b504a3
+27	41	1660910285070256399	NSC___Normalized_Spectral_Clustering_C_API	8c004228d297a6bf
