@@ -1,1 +1,0 @@
-CMakeLists.txt not found in /home/ram/Documents/LocalTAU/second year/sw project/NSC - Normalized Spectral Clustering C API/src Select CMakeLists.txt

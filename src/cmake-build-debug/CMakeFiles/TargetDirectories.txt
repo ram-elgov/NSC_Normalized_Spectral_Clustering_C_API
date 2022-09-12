@@ -1,3 +1,0 @@
-/home/ram/Documents/LocalTAU/second year/sw project/NSC - Normalized Spectral Clustering C API/src/cmake-build-debug/CMakeFiles/NSC___Normalized_Spectral_Clustering_C_API.dir
-/home/ram/Documents/LocalTAU/second year/sw project/NSC - Normalized Spectral Clustering C API/src/cmake-build-debug/CMakeFiles/edit_cache.dir
-/home/ram/Documents/LocalTAU/second year/sw project/NSC - Normalized Spectral Clustering C API/src/cmake-build-debug/CMakeFiles/rebuild_cache.dir

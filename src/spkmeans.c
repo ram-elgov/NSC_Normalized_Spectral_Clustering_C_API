@@ -45,7 +45,7 @@ int main(int argc, char **argv) {
 
   CalculateNandD(argv[2], &n, &d);
   AllocateMatrix(&data_points, n, d);
-  BuildDataPointsMatrix(argv[2], data_points, n, d);
+  BuildDataPointsMatrix(argv[2], data_points);
   ConstructNsc(&nsc, data_points, n, d, user_goal);
   /* run the required calculation based on the given goal */
   ChooseGoal(&nsc);
@@ -74,30 +74,15 @@ void FreeMatrix(double **matrix) {
   free(*matrix);
   *matrix = NULL;
 }
-void PrintMatrixJacobi(Nsc *nsc) {
-  int i;
-  int n = nsc->n;
-  for (i = 0; i < n; i++) {
-    if (nsc->eigen_values[i] > -0.00001 && nsc->eigen_values[i] < 0) {
-      if (i < n - 1) {
-        printf("%.4f%s", fabs(nsc->eigen_values[i]), ",");
-      } else {
-        printf("%.4f\n", fabs(nsc->eigen_values[i]));
-      }
-    } else {
-      if (i < n - 1) {
-        printf("%.4f%s", nsc->eigen_values[i], ",");
-      } else {
-        printf("%.4f\n", nsc->eigen_values[i]);
-      }
-    }
-  }
-}
+
 void InvalidInput() {
   printf("Invalid Input!");
+  exit(EXIT_FAILURE);
 }
 void GeneralError() {
   printf("An Error Has Occurred");
+  exit(EXIT_FAILURE);
+
 }
 void ChooseGoal(Nsc *nsc) {
   switch (nsc->goal) {
@@ -114,6 +99,8 @@ void ChooseGoal(Nsc *nsc) {
       PrintMatrix(nsc->eigen_values, 1, nsc->n);
       PrintMatrix(nsc->eigen_vectors, nsc->n, nsc->n);
       break;
+    case FIT:
+    default:break;
   }
 }
 
@@ -144,9 +131,8 @@ void CalculateWeightedAdjacencyMatrix(Nsc *nsc) {
     }
   }
 }
-/* Calculate and output the Diagonal Degree Matrix as described in 1.1.2. */
 void CalculateDiagonalDegreeMatrix(Nsc *nsc) {
-  double val = 0;
+  double val;
   int i, j, n = nsc->n;
   CalculateWeightedAdjacencyMatrix(nsc);
   for (i = 0; i < n; i++) {
@@ -184,22 +170,11 @@ void CalculateNormalizedGraphLaplacian(Nsc *nsc) {
   FreeMatrix(&inversed_dw);
   FreeMatrix(&inversed_dw_inversed_d);
 }
-/**
- * Procedure:
-(a) Build a rotation matrix P (as explained below).
-(b) Transform the matrix A to:
-A' = P^TAP
-A = A'
-(c) Repeat a,b until A' is diagonal matrix.
-(d) The diagonal of the final A 0 is the eigenvalues of the original A.
-(e) Calculate the eigenvectors of A by multiplying all the rotation matrices:
-V = P 1 P 2 P 3 . . .
- * */
 void CalculateJacobi(Nsc *nsc) {
   /* Declerations */
   double *p, *a_tag, *a, *v;
   /* v is the product of all rotation matrices p1p2p3... */
-  int i, n = nsc->n;
+  int n = nsc->n;
   /* Memory allocation and initializations */
   AllocateMatrix(&a, n, n);
   if (nsc->goal == FIT)
@@ -215,10 +190,6 @@ void CalculateJacobi(Nsc *nsc) {
   /* Preform calculations until epsilon convergence or
    * num_iteration exceeds 100 */
   RunJacobiCalculations(a, a_tag, p, v, n, nsc);
-  /* Extract results */
-  for (i = 0; i < nsc->n; ++i) {
-    nsc->eigen_values[i] = a[i * n + i];
-  }
   /* Memory de-allocation */
   FreeMatrix(&a);
   FreeMatrix(&a_tag);
@@ -266,10 +237,14 @@ void RunJacobiCalculations(double a[],
                            int n,
                            Nsc *nsc) {
   /* Declerations */
-  int num_iteration = 0;
+  int num_iteration = 0, i;
   double convergence = nsc->epsilon + 1;
   /* v is the partial product of rotation matrecies p1p2p3... */
   while (num_iteration < 100 && convergence > nsc->epsilon) {
+    if(IsDiagonal(a, n) == 1){
+      IdentityMatrix(nsc->eigen_vectors, n);
+      break;
+    }
     CalculateRotationMatrix(a, p, n, nsc); /* p is the rotation matrix for a */
     CalculateAPrimeEfficient(a, a_tag, nsc);
     convergence = (Off(a, n) - Off(a_tag, n));
@@ -278,6 +253,10 @@ void RunJacobiCalculations(double a[],
       CopyMatrix(v, nsc->eigen_vectors, n, n);
     MultiplyTwoMatrices(v, p, nsc->eigen_vectors, n);
     ++num_iteration;
+  }
+  /* Extract results */
+  for (i = 0; i < nsc->n; ++i) {
+    nsc->eigen_values[i] = a[i * n + i];
   }
 }
 void FindPivot(const double a[],
@@ -369,7 +348,6 @@ void DestructNsc(Nsc *nsc) {
   FreeMatrix(&(nsc->eigen_values));
   FreeMatrix(&(nsc->eigen_vectors));
 }
-
 void CalculateNandD(const char file_name[], int *n, int *d) {
   /* calculate number of input data data_points and dimensionality */
   char c;
@@ -391,9 +369,7 @@ void CalculateNandD(const char file_name[], int *n, int *d) {
   fclose(input_file);
 }
 void BuildDataPointsMatrix(const char file_name[],
-                           double *data_points,
-                           int n,
-                           int d) {
+                           double *data_points) {
   double data;
   int i = 0;
   FILE *input_file = fopen(file_name, "r");
@@ -424,21 +400,6 @@ double CalculateWeight(int i, int j, Nsc *nsc) {
   free(vector_j);
   return result;
 }
-void CalculateAPrime(const double a[], double a_tag[], Nsc *nsc) {
-  /* Declarations */
-  double *p, *p_transpose, *help;
-  int n = nsc->n;
-  /* Memory allocation */
-  AllocateMatrix(&p_transpose, n, n);
-  /* Matrix calculations */
-  Transpose(p, p_transpose, n);
-  MultiplyTwoMatrices(p_transpose, a, help, n);
-  MultiplyTwoMatrices(help, p, a_tag, n);
-  /* Memory de-allocation*/
-  free(p_transpose);
-  free(help);
-
-}
 void CalculateAPrimeEfficient(const double a[], double a_tag[], Nsc *nsc) {
   int i = nsc->i_pivot, j = nsc->j_pivot, n = nsc->n;
   double c = nsc->c, s = nsc->s;
@@ -459,23 +420,20 @@ void CalculateAPrimeEfficient(const double a[], double a_tag[], Nsc *nsc) {
       - a[j * n + j]);
   a_tag[j * n + i] = a_tag[i * n + j];
 }
-
-/****** The Eigen-gap Heuristic for finding number of clusters - K
- * values[n] , vectors[n * n], new_vectors[n * n]*****************/
 int FindK(Nsc *nsc, int k) {
-  double *new_values, *new_vectors, maximum;
+  double *new_values, *new_vectors, minimum;
   int i, j, index, max_index, n = nsc->n;
   double max = 0;
-  AllocateMatrix(&new_values,1, n);
+  AllocateMatrix(&new_values, 1, n);
   AllocateMatrix(&new_vectors, n, n);
-  maximum = FindMax(nsc->eigen_values, n);
+  minimum = FindMin(nsc->eigen_values, n);
   for (i = 0; i < n; i++) {
-    index = IndexOfMinValue(nsc->eigen_values, n);
+    index = IndexOfMaxValue(nsc->eigen_values, n);
     new_values[i] = nsc->eigen_values[index];
     for (j = 0; j < n; j++) {
       new_vectors[j * n + i] = nsc->eigen_vectors[j * n + index];
     }
-    nsc->eigen_values[index] = maximum + 1;
+    nsc->eigen_values[index] = minimum - 1;
   }
   if (k == 0) {
     for (i = 0; i < floor(n / 2.0); i++) {
@@ -493,43 +451,11 @@ int FindK(Nsc *nsc, int k) {
     return max_index + 1;
   return k;
 }
-int findK2(Nsc *nsc, int k) {
-  double *new_values, *new_vectors, maximum;
-  int i, j, index, max_index, n = nsc->n;
-  double max = 0;
-  AllocateMatrix(&new_values, 1, n);
-  AllocateMatrix(&new_vectors, n, n);
-  maximum = FindMax(nsc->eigen_values, n);
-  for (i = 0; i < n; i++) {
-    IndexOfMinValue(nsc->eigen_values, nsc->n);
-    new_values[i] = nsc->eigen_values[index];
-    for (j = 0; j < n; j++) {
-      new_vectors[j * nsc->n + i] = nsc->eigen_vectors[j * nsc->n + index];
-    }
-    nsc->eigen_values[index] = maximum + 1;;
-  }
-  if (k == 0) {
-    for (i = 0; i < floor(n / 2.0); i++) {
-      if (max < fabs(new_values[i] - new_values[i + 1])) {
-        max = fabs(new_values[i] - new_values[i + 1]);
-        max_index = i;
-      }
-    }
-  }
-  for (i = 0; i < n; i++) {
-    nsc->eigen_values[i] = new_values[i];
-  }
-  FreeMatrix(&new_values);
-  CopyMatrix(nsc->eigen_vectors, new_vectors, nsc->n, nsc->n);
-  FreeMatrix(&new_vectors);
-  if (k == 0) {
-    return max_index + 1;
-  }
-  return k;
-}
+
 /*
  * Math helper functions
  */
+
 double CalculateEuclideanDistance(double vector_1[], double vector_2[], int d) {
   /***
    * calculate and return the standard Euclidean distance
@@ -580,55 +506,32 @@ void IdentityMatrix(double identity[], int n) {
     }
   }
 }
-int CheckDiagonal(const double a[], int n) {
-  int i, j;
-  for (i = 0; i < n; ++i) {
-    for (j = 0; j < n; ++j) {
-      if (i != j)
-        if (a[i * n + j] != 0)
-          return 0;
-    }
-  }
-  return 1;
-}
-/* this func return the index of the min value in a given array */
-int IndexOfMinValue(const double *values, int n) {
-  int i;
-  double min;
-  int min_index;
-  min = values[0];
-  min_index = 0;
-  for (i = 0; i < n; i++) {
-    if (min > values[i]) {
-      min = values[i];
-      min_index = i;
-    }
-  }
-  return min_index;
-}
-/*this func calculates the max of a given array*/
-double FindMax(const double *values, int n) {
+int IndexOfMaxValue(const double *values, int n){
   int i;
   double max;
+  int max_index;
   max = values[0];
+  max_index = 0;
   for (i = 0; i < n; i++) {
-    if (values[i] > max) {
+    if (max < values[i]) {
       max = values[i];
+      max_index = i;
     }
   }
-  return max;
-
+  return max_index;
 }
-void Transpose(const double a[], double transpose[], int n) {
-  int i, j;
-  for (i = 0; i < n; ++i) {
-    for (j = 0; j < n; ++j) {
-      transpose[j * n + i] = a[i * n + j];
+double FindMin(const double *values, int n) {
+  int i;
+  double min;
+  min = values[0];
+  for (i = 0; i < n; i++) {
+    if (values[i] < min) {
+      min = values[i];
     }
   }
-}
+  return min;
 
-/*this func calculates U matrix*/
+}
 void CalculateUMatrix(Nsc *nsc, double *u, int k) {
   int i, j;
   for (i = 0; i < nsc->n; i++) {
@@ -637,8 +540,6 @@ void CalculateUMatrix(Nsc *nsc, double *u, int k) {
     }
   }
 }
-
-/*this func calculates T matrix*/
 void CalculateTMatrix(double *u, double *t, int n, int k) {
   int i, j;
   double sum;
@@ -656,4 +557,15 @@ void CalculateTMatrix(double *u, double *t, int n, int k) {
       }
     }
   }
+}
+bool IsDiagonal(const double a[], int n) {
+  int i, j;
+  for (i = 0; i < n; ++i) {
+    for (j = 0; j < n; ++j) {
+      if(i != j)
+        if(a[i * n + j] != 0)
+          return FALSE;
+    }
+  }
+  return TRUE;
 }

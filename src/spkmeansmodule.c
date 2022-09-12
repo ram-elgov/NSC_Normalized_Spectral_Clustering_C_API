@@ -11,8 +11,13 @@
 Implementation of the Normalized Spectral Clustering algorithm.
 
 ******************************************************************************/
-/* C API code kmeans */
 
+/* C API code kmeans */
+/**
+ *
+ * @param m
+ * @param rows
+ */
 static void free_2d_arr(double** m, int rows) {
 /*
 function to free memory allocated for 2d array.
@@ -23,6 +28,15 @@ function to free memory allocated for 2d array.
   }
   free(m);
 }
+/**
+ *
+ * @param centroids
+ * @param old_centroids
+ * @param K
+ * @param d
+ * @param epsilon
+ * @return
+ */
 static int is_converged(double *centroids, double *old_centroids, int K, int d, double epsilon) {
 /*
 checks if the convergence criteria has been reached.
@@ -44,6 +58,14 @@ checks if the convergence criteria has been reached.
   }
   return 0;
 }
+/**
+ *
+ * @param x
+ * @param centroids
+ * @param K
+ * @param d
+ * @return
+ */
 static int index_of_closest_cluster(double *x, double *centroids, int K, int d) {
 /*
 calculating the index of the closest cluster to the given data point.
@@ -68,6 +90,17 @@ calculating the index of the closest cluster to the given data point.
   }
   return index;
 }
+/**
+ *
+ * @param data_points
+ * @param centroids_pp
+ * @param n
+ * @param d
+ * @param k
+ * @param max_iter
+ * @param epsilon
+ * @return
+ */
 static int run(double** data_points, double** centroids_pp, int n, int d, int k, int max_iter, double epsilon) {
 /*
 the main clustering algorithm using kmeans.
@@ -147,9 +180,14 @@ same implementation from HW1 except using kmeans++ and data parsing implemented 
   free(vectors);
   return 0;
 }
-/*
-C API code
-*/
+
+/**
+ *
+ * @param num_of_elements
+ * @param dim
+ * @param python_list
+ * @return
+ */
 static double** get_from_python(int num_of_elements, int dim, PyObject *python_list){
 /*
 parse python list input into 2d array.
@@ -168,6 +206,13 @@ parse python list input into 2d array.
   }
   return matrix;
 }
+/**
+ *
+ * @param centroids
+ * @param K
+ * @param dim
+ * @return
+ */
 static PyObject* send_to_python(double** centroids, int K, int dim){
 /*
 send the final centroids to python as a list object.
@@ -187,6 +232,12 @@ send the final centroids to python as a list object.
   }
   return outer_list;
 }
+/**
+ *
+ * @param self
+ * @param args
+ * @return
+ */
 static PyObject* fit_kmeans(PyObject *self, PyObject *args) {
 /*
 the algorithm's fit() function. calls run() and return the output back to python.
@@ -214,10 +265,17 @@ the algorithm's fit() function. calls run() and return the output back to python
     return output;
   }
 }
+
 /*
 C API code spectral clustering
 */
-
+/**
+ *
+ * @param data_points_from_py
+ * @param data_points_converted_to_c
+ * @param n
+ * @param d
+ */
 static void convert_object_python_to_c(PyObject *data_points_from_py,
                                        double data_points_converted_to_c[],
                                        int n,
@@ -229,7 +287,13 @@ static void convert_object_python_to_c(PyObject *data_points_from_py,
           PyList_GetItem(data_points_from_py, i * d + j));
     }
 }
-
+/**
+ *
+ * @param matrix
+ * @param n
+ * @param d
+ * @return
+ */
 static PyObject *convert_object_c_to_python(double *matrix, int n, int d) {
   int i, j;
   PyObject * pyMatrix;
@@ -243,6 +307,12 @@ static PyObject *convert_object_c_to_python(double *matrix, int n, int d) {
   return pyMatrix;
 }
 
+/**
+ *
+ * @param self
+ * @param args
+ * @return
+ */
 static PyObject *fit(PyObject *self, PyObject *args) {
   /* Declarations */
   Nsc nsc;
@@ -293,10 +363,13 @@ static PyObject *fit(PyObject *self, PyObject *args) {
   return result_for_python;
 }
 
-#pragma clang diagnostic push
-#pragma ide diagnostic ignored "UnusedParameter"
+/**
+ *
+ * @param self
+ * @param args
+ * @return
+ */
 static PyObject *compute_wam(PyObject *self, PyObject *args) {
-#pragma clang diagnostic pop
   /* Declarations */
   Nsc nsc;
   int n, d;
@@ -329,7 +402,12 @@ static PyObject *compute_wam(PyObject *self, PyObject *args) {
   /* Return */
   return result_for_python;
 }
-
+/**
+ *
+ * @param self
+ * @param args
+ * @return
+ */
 static PyObject *compute_ddg(PyObject *self, PyObject *args) {
   /* Declarations */
   int n, d;
@@ -361,7 +439,12 @@ static PyObject *compute_ddg(PyObject *self, PyObject *args) {
   /* Return */
   return result_for_python;
 }
-
+/**
+ *
+ * @param self
+ * @param args
+ * @return
+ */
 static PyObject *compute_lnorm(PyObject *self, PyObject *args) {
   /* Declarations */
   Nsc nsc;
@@ -395,7 +478,12 @@ static PyObject *compute_lnorm(PyObject *self, PyObject *args) {
   /* Return */
   return result_for_python;
 }
-
+/**
+ *
+ * @param self
+ * @param args
+ * @return
+ */
 static PyObject *compute_jacobi(PyObject *self, PyObject *args) {
   /* Declarations */
   Nsc nsc;
@@ -432,6 +520,10 @@ static PyObject *compute_jacobi(PyObject *self, PyObject *args) {
   return result_for_python;
 }
 
+/**
+ *
+ */
+
 static PyMethodDef myMethods[] = {
     {"fit", (PyCFunction) fit, METH_VARARGS,
      PyDoc_STR("fit method for the spk algorithm")},
@@ -451,6 +543,10 @@ static PyMethodDef myMethods[] = {
     {NULL, NULL, 0, NULL}
 };
 
+/**
+ *
+ */
+
 static struct PyModuleDef finalmodule = {
     PyModuleDef_HEAD_INIT,
     "finalmodule",
@@ -459,6 +555,10 @@ static struct PyModuleDef finalmodule = {
     myMethods
 };
 
+/**
+ *
+ * @return
+ */
 PyMODINIT_FUNC
 PyInit_finalmodule(void) {
   return PyModule_Create(&finalmodule);

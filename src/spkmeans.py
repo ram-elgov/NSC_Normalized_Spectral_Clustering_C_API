@@ -11,7 +11,9 @@ MAX_ITER = 300
 
 def print_output_centroids(km):
     """
-    outputs the final centroids calculated by kmeans.c
+
+    :param km:
+    :return:
     """
     for centroid in km.output:
         print(','.join(["%.4f" % coordinate for coordinate in centroid]))
@@ -19,7 +21,9 @@ def print_output_centroids(km):
 
 def print_centroid_indices(km):
     """
-    outputs the final centroids indexes.
+
+    :param km:
+    :return:
     """
     print(','.join([f"{int(i)}" for i in km.centroids_indices]))
 
@@ -28,18 +32,15 @@ class SpectralClustering:
     """ main data structure to support the algorithm implementation """
 
     def __init__(self, n, d, k, goal, data_points, max_iter):
-        """"
-        reads the data data_points from the given input file into an array.
-        :param n: number of data data_points in the input file. (<=1000)
-        :param d: the dimension of each data point. 
-        :param k: Number of required clusters (0 <= k < n)
-        :param goal: Can get the following values:
-                    spk: Perform full spectral kmeans as described in 1.
-                    wam: Calculate and output the Weighted Adjacency Matrix as described in 1.1.1.
-                    ddg: Calculate and output the Diagonal Degree Matrix as described in 1.1.2.
-                    lnorm: Calculate and output the Normalized Graph Laplacian as described in 1.1.3.
-                    jacobi: Calculate and output the eigenvalues and eigenvectors as described in 1.2.1.
-        """""
+        """
+
+        :param n:
+        :param d:
+        :param k:
+        :param goal:
+        :param data_points:
+        :param max_iter:
+        """
         self.data_points = data_points
         self.n = n
         self.d = d
@@ -50,9 +51,8 @@ class SpectralClustering:
 
 def parse_input():
     """
-    parse the input arguments and validates them.
-    :return: spkmeans object initialized with respect
-     to the given user input
+
+    :return:
     """
     parser = ArgumentParser()
     parser.add_argument("k")
@@ -77,16 +77,31 @@ def parse_input():
 # parse data and call the appropriate spkmeans function based on the goal
 # print the result returned from the spkmeans
 def invalid_input():
+    """
+
+    :return:
+    """
     print("Invalid Input!")
     sys.exit()
 
 
 def general_error():
+    """
+
+    :return:
+    """
     print("An Error Has Occurred")
     sys.exit()
 
 
 def print_matrix(matrix, n, d):
+    """
+
+    :param matrix:
+    :param n:
+    :param d:
+    :return:
+    """
     for i in range(n):
         for j in range(d):
             if j != d - 1:
@@ -102,6 +117,15 @@ class KMeans:
     """
 
     def __init__(self, k, epsilon, file_name_1=None, file_name_2=None, max_iter=MAX_ITER, data_points=None):
+        """
+
+        :param k:
+        :param epsilon:
+        :param file_name_1:
+        :param file_name_2:
+        :param max_iter:
+        :param data_points:
+        """
         self.k = k  # number of clusters
         self.max_iter = max_iter  # maximum number of iteration for the algorithm
         self.file_name_1 = file_name_1  # an input file with valid format of data points (text file)
@@ -123,7 +147,8 @@ class KMeans:
 
     def initialize_data_points(self, data_points=None):
         """
-        reads and merge the two input files
+
+        :param data_points:
         :return:
         """
         if data_points is None:
@@ -139,10 +164,9 @@ class KMeans:
 
     def find_min_distance(self, data_point):
         """
-        a function to compute the minimal distance between a given data frame to the current existing
-        centroids. assumes centroids is not empty.
-        param data_point: a given data point to compute the minimal distance for.
-        :return: the minimal distance between the input and the centroids.
+
+        :param data_point:
+        :return:
         """
         m = math.inf
         for i in range(self.centroids.shape[0]):
@@ -151,10 +175,8 @@ class KMeans:
 
     def k_means_pp(self):
         """
-        an implementation of the kmeans++ algorithm to generate initial centroids
-        for the use of a kmeans clustering algorithm implementation.
-        assumes initialize_centroids() was already called.
-        :return: a float type data frame that contains the randomly chosen centroids.
+
+        :return:
         """
         np.random.seed(0)
         miu1_index = np.random.choice(range(self.number_of_rows))
@@ -172,6 +194,10 @@ class KMeans:
 
 
 def main():
+    """
+
+    :return:
+    """
     spk = parse_input()
     if spk.goal == 'spk':
         tuple_t_k = finalmodule.fit(spk.data_points, spk.n, spk.d, spk.k)
@@ -200,5 +226,4 @@ if __name__ == '__main__':
     try:
         main()
     except Exception as e:
-        print(str(e) + "\n")
         general_error()
